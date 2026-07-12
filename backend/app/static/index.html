@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>깡CK</title>
+    <link rel="stylesheet" href="/assets/app.css?v=20260712-34" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand active" href="#home" data-page-link="home">깡CK</a>
+      <nav class="nav">
+        <a href="#notice" data-page-link="notice">공지사항</a>
+        <a href="#rank" data-page-link="rank">랭크</a>
+        <a href="#history" data-page-link="history">게임이력</a>
+        <a href="#stats" data-page-link="stats">전적통계</a>
+        <a href="#teams" data-page-link="teams">팀짜기</a>
+        <a href="#admin" data-page-link="admin" data-admin-navigation>관리</a>
+      </nav>
+      <div class="auth-area" id="auth-area" hidden></div>
+    </header>
+
+    <main id="top">
+      <section class="live-match-strip" aria-label="진행중 경기">
+        <div class="current-game-panel" id="current-game-panel">
+          <span class="panel-label">Live Match</span>
+          <strong>진행중 경기 없음</strong>
+          <span>경기시작을 누르면 이곳에 바로 표시됩니다.</span>
+        </div>
+      </section>
+
+      <section class="hero page-section active" id="home" data-page="home">
+        <div class="hero-copy">
+          <p class="eyebrow">깡CK 드어넥슴 League</p>
+          <h1 id="home-season-title">시즌 정보</h1>
+          <div class="home-summary-grid" id="home-summary-grid">
+            <article class="home-summary-card">
+              <span>시즌</span>
+              <strong>-</strong>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="toolbar page-toolbar" aria-label="시즌 선택" hidden>
+        <label for="season-select">시즌</label>
+        <select id="season-select"></select>
+      </section>
+
+      <section class="data-grid page-section" id="rank" data-page="rank" hidden>
+        <div class="section-heading">
+          <p class="eyebrow">Rank</p>
+          <h2>랭킹</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>순위</th>
+                <th>플레이어</th>
+                <th>티어</th>
+                <th>점수</th>
+                <th>승</th>
+                <th>패</th>
+                <th>승률</th>
+              </tr>
+            </thead>
+            <tbody id="ranking-body"></tbody>
+          </table>
+        </div>
+        <div class="player-detail-panel" id="player-detail-panel" hidden></div>
+      </section>
+
+      <section class="data-grid page-section" id="history" data-page="history" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">History</p>
+            <h2>게임이력</h2>
+          </div>
+        </div>
+        <div class="history-controls">
+          <label class="history-search">
+            <span>검색</span>
+            <input id="history-search-input" type="search" placeholder="닉네임, 직업, 경기ID" />
+          </label>
+          <div class="history-action-group">
+            <button type="button" id="history-search-button">검색</button>
+            <button type="button" id="history-clear-search-button">초기화</button>
+          </div>
+          <label class="inline-check history-all-check">
+            <input type="checkbox" id="history-all-seasons" />
+            <span>전체 경기 검색</span>
+          </label>
+          <label class="history-page-size">
+            <span>페이지 크기</span>
+            <select id="history-page-size">
+              <option value="20">20개</option>
+              <option value="50">50개</option>
+              <option value="100">100개</option>
+            </select>
+          </label>
+        </div>
+        <div class="history-list" id="history-list"></div>
+        <div class="pagination" id="history-pagination">
+          <button type="button" id="history-first-page">처음</button>
+          <button type="button" id="history-prev-page">이전</button>
+          <span id="history-page-info">-</span>
+          <button type="button" id="history-next-page">다음</button>
+          <button type="button" id="history-last-page">마지막</button>
+        </div>
+      </section>
+
+      <section class="data-grid page-section" id="stats" data-page="stats" hidden>
+        <div class="section-heading">
+          <p class="eyebrow">Stats</p>
+          <h2>전적통계</h2>
+        </div>
+        <div class="stats-tabs" role="tablist" aria-label="전적통계 보기 선택">
+          <button
+            type="button"
+            class="stats-tab active"
+            data-stats-tab="overview"
+            aria-selected="true"
+          >
+            요약
+          </button>
+          <button type="button" class="stats-tab" data-stats-tab="player" aria-selected="false">
+            전체 개인전적
+          </button>
+          <button type="button" class="stats-tab" data-stats-tab="duo-list" aria-selected="false">
+            전체 듀오
+          </button>
+          <button type="button" class="stats-tab" data-stats-tab="duo-search" aria-selected="false">
+            듀오 검색
+          </button>
+        </div>
+
+        <div class="stats-panels">
+          <article class="stats-card stats-panel active" data-stats-panel="overview">
+            <div class="section-subheading">
+              <h3>시즌 요약</h3>
+            </div>
+            <div class="stat-grid" id="stat-grid"></div>
+          </article>
+
+          <article class="stats-card stats-panel" data-stats-panel="player">
+            <div class="section-subheading">
+              <h3>전체 개인전적 통계</h3>
+              <span>W/L/R 정렬: 50판 이상</span>
+            </div>
+            <div class="table-wrap compact-table">
+              <table>
+                <thead id="player-stats-head">
+                  <tr>
+                    <th><button type="button" class="sort-button" data-player-sort="rank">전체 순위</button></th>
+                    <th><button type="button" class="sort-button" data-player-sort="player_name">유저ID</button></th>
+                    <th><button type="button" class="sort-button" data-player-sort="trophy_score">트로피(전체)</button></th>
+                    <th><button type="button" class="sort-button" data-player-sort="games_played">총 게임</button></th>
+                    <th><button type="button" class="sort-button" data-player-sort="wins">승</button></th>
+                    <th><button type="button" class="sort-button" data-player-sort="losses">패</button></th>
+                    <th><button type="button" class="sort-button" data-player-sort="win_rate">승률</button></th>
+                    <th><button type="button" class="sort-button" data-player-sort="class:드루">드루 W/L/R</button></th>
+                    <th><button type="button" class="sort-button" data-player-sort="class:어쎄">어쎄 W/L/R</button></th>
+                    <th><button type="button" class="sort-button" data-player-sort="class:네크">네크 W/L/R</button></th>
+                    <th><button type="button" class="sort-button" data-player-sort="class:슴딘">슴딘 W/L/R</button></th>
+                  </tr>
+                </thead>
+                <tbody id="player-stats-body"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="stats-card stats-panel" data-stats-panel="duo-list">
+            <div class="section-subheading">
+              <h3>전체 듀오전적</h3>
+              <div class="inline-actions">
+                <label class="inline-check">
+                  <input type="checkbox" id="duo-all-seasons" />
+                  <span>전체 시즌</span>
+                </label>
+                <button type="button" id="refresh-duos-button">조회</button>
+              </div>
+            </div>
+            <div class="table-wrap compact-table">
+              <table>
+                <thead id="duo-stats-head">
+                  <tr>
+                    <th><button type="button" class="sort-button" data-duo-sort="index">#</button></th>
+                    <th><button type="button" class="sort-button" data-duo-sort="duo_name">듀오 이름</button></th>
+                    <th><button type="button" class="sort-button" data-duo-sort="total_games">총 게임</button></th>
+                    <th><button type="button" class="sort-button" data-duo-sort="wins">승</button></th>
+                    <th><button type="button" class="sort-button" data-duo-sort="losses">패</button></th>
+                    <th><button type="button" class="sort-button" data-duo-sort="win_rate">승률</button></th>
+                  </tr>
+                </thead>
+                <tbody id="duo-stats-body"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="stats-card stats-panel duo-search-card" data-stats-panel="duo-search">
+            <div class="section-subheading">
+              <h3>듀오 검색</h3>
+              <span>플레이어 2명을 입력하면 같은 팀/상대 전적과 직업 상성을 조회합니다.</span>
+            </div>
+            <div class="duo-search-form">
+              <label class="autocomplete-host">
+                <span>플레이어 1</span>
+                <input id="duo-player-1" type="text" autocomplete="off" />
+                <div class="autocomplete-list" hidden></div>
+              </label>
+              <label class="autocomplete-host">
+                <span>플레이어 2</span>
+                <input id="duo-player-2" type="text" autocomplete="off" />
+                <div class="autocomplete-list" hidden></div>
+              </label>
+              <button type="button" class="primary" id="search-duo-button">검색</button>
+            </div>
+            <div class="duo-matchup-result" id="duo-matchup-result"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="data-grid page-section" id="teams" data-page="teams" hidden>
+        <div class="section-heading">
+          <p class="eyebrow">Team Builder</p>
+          <h2>팀짜기</h2>
+        </div>
+        <div class="builder-layout">
+          <div class="builder-panel">
+            <div class="builder-actions">
+              <button type="button" id="clear-team-button">규칙 초기화</button>
+              <button type="button" id="copy-team-button">복사</button>
+              <button type="button" class="primary" id="build-team-button">실행</button>
+            </div>
+            <div class="player-input-grid" id="team-input-grid"></div>
+          </div>
+          <div class="builder-result">
+            <p class="team-message" id="team-message"></p>
+            <div class="result-teams" id="team-result"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="data-grid page-section" id="notice" data-page="notice" hidden>
+        <div class="section-heading">
+          <p class="eyebrow">Notice</p>
+          <h2>공지사항</h2>
+        </div>
+        <div class="notice-list" id="notice-list"></div>
+      </section>
+
+      <section class="data-grid page-section" id="admin" data-page="admin" hidden>
+        <div class="section-heading">
+          <p class="eyebrow">Admin</p>
+          <h2>관리</h2>
+        </div>
+        <div class="admin-grid admin-summary-grid">
+          <article class="admin-card">
+            <span>진행중 시즌</span>
+            <strong id="admin-open-season">-</strong>
+          </article>
+        </div>
+
+        <div class="admin-tabs" role="tablist" aria-label="관리 메뉴">
+          <button type="button" class="admin-tab active" data-admin-tab="season">시즌</button>
+          <button type="button" class="admin-tab" data-admin-tab="notice">공지사항</button>
+          <button type="button" class="admin-tab" data-admin-tab="player">유저</button>
+          <button type="button" class="admin-tab" data-admin-tab="mmr" data-permission-required="mmr:manage">MMR</button>
+          <button type="button" class="admin-tab" data-admin-tab="user" data-super-admin-only hidden>권한</button>
+        </div>
+
+        <article class="admin-card admin-season-panel admin-panel active" data-admin-panel="season">
+          <div class="admin-list-heading">
+            <div>
+              <span>시즌 관리</span>
+              <strong id="admin-season-count">-</strong>
+            </div>
+            <div class="admin-list-controls compact-controls">
+              <label class="inline-check">
+                <input type="checkbox" id="admin-include-disabled-seasons" />
+                <span>비활성 포함</span>
+              </label>
+              <button type="button" id="admin-refresh-seasons">조회</button>
+            </div>
+          </div>
+          <p class="admin-season-note">
+            진행중 시즌은 1개만 허용합니다. 실수로 마감한 직전 시즌은 열린 시즌이 없을 때 다시 시작할 수 있습니다.
+          </p>
+          <form class="admin-season-create-form" id="admin-season-create-form">
+            <label>
+              <span>새 시즌명</span>
+              <input id="admin-season-name" type="text" maxlength="120" placeholder="자동 생성" />
+            </label>
+            <button type="submit" class="primary" id="admin-create-season-button">신규 시즌 시작</button>
+          </form>
+          <p class="admin-season-note">
+            신규 시즌 시작은 열린 시즌이 없을 때만 가능합니다. 현재 시즌을 먼저 마감한 뒤 시작해주세요.
+          </p>
+          <p class="admin-player-message" id="admin-season-message"></p>
+          <div class="table-wrap compact-table admin-season-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>시즌</th>
+                  <th>상태</th>
+                  <th>시작일</th>
+                  <th>마감일</th>
+                  <th>관리</th>
+                </tr>
+              </thead>
+              <tbody id="admin-season-body"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="admin-card admin-notice-panel admin-panel" data-admin-panel="notice" hidden>
+          <div class="admin-list-heading">
+            <div>
+              <span>공지사항 관리</span>
+              <strong id="admin-notice-count">-</strong>
+            </div>
+            <div class="admin-list-controls compact-controls">
+              <button type="button" id="admin-refresh-notices">조회</button>
+            </div>
+          </div>
+          <form class="admin-player-form admin-notice-form" id="admin-notice-form">
+            <input id="admin-notice-id" type="hidden" />
+            <label>
+              <span>제목</span>
+              <input id="admin-notice-title" type="text" maxlength="200" required />
+            </label>
+            <label class="admin-notice-body-label">
+              <span>내용</span>
+              <textarea id="admin-notice-body" maxlength="10000" rows="5" required></textarea>
+            </label>
+            <div class="admin-notice-options">
+              <label class="inline-check">
+                <input type="checkbox" id="admin-notice-published" checked />
+                <span>게시</span>
+              </label>
+              <label class="inline-check">
+                <input type="checkbox" id="admin-notice-pinned" />
+                <span>상단 고정</span>
+              </label>
+            </div>
+            <div class="admin-notice-actions">
+              <button type="button" id="admin-notice-reset">작성 초기화</button>
+              <button type="submit" class="primary" id="admin-notice-submit">등록</button>
+            </div>
+          </form>
+          <p class="admin-player-message" id="admin-notice-message"></p>
+          <div class="table-wrap compact-table admin-notice-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>제목</th>
+                  <th>상태</th>
+                  <th>게시일</th>
+                  <th>관리</th>
+                </tr>
+              </thead>
+              <tbody id="admin-notice-body-list"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <div class="admin-player-panel admin-panel" data-admin-panel="player" hidden>
+          <article class="admin-card admin-player-form-card">
+            <span>유저 등록</span>
+            <form class="admin-player-form" id="admin-player-form">
+              <label>
+                <span>닉네임</span>
+                <input id="admin-player-name" type="text" maxlength="80" required />
+              </label>
+              <div class="admin-player-character-grid">
+                <label>
+                  <span>드루 캐릭명 선택</span>
+                  <input data-admin-character="드루" type="text" maxlength="80" />
+                </label>
+                <label>
+                  <span>어쎄 캐릭명 선택</span>
+                  <input data-admin-character="어쎄" type="text" maxlength="80" />
+                </label>
+                <label>
+                  <span>네크 캐릭명 선택</span>
+                  <input data-admin-character="네크" type="text" maxlength="80" />
+                </label>
+                <label>
+                  <span>슴딘 캐릭명 선택</span>
+                  <input data-admin-character="슴딘" type="text" maxlength="80" />
+                </label>
+              </div>
+              <button type="submit" class="primary">등록</button>
+            </form>
+            <p class="admin-player-message" id="admin-player-message"></p>
+          </article>
+
+          <article class="admin-card admin-player-list-card">
+            <div class="admin-list-heading">
+              <div>
+                <span>유저 관리</span>
+                <strong id="admin-player-count">-</strong>
+              </div>
+              <div class="admin-list-controls">
+                <input id="admin-player-search" type="search" placeholder="닉네임 검색" />
+                <label class="inline-check">
+                  <input type="checkbox" id="admin-include-inactive" checked />
+                  <span>비활성 포함</span>
+                </label>
+                <button type="button" id="admin-refresh-players">조회</button>
+              </div>
+            </div>
+            <div class="table-wrap compact-table admin-player-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>닉네임</th>
+                    <th>티어</th>
+                    <th>상태</th>
+                    <th>총게임</th>
+                    <th>참조</th>
+                    <th>관리</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-player-body"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+
+        <article class="admin-card admin-user-panel admin-panel" data-admin-panel="user" data-super-admin-only hidden>
+          <div class="admin-list-heading">
+            <div>
+              <span>관리자 권한</span>
+              <strong id="admin-user-count">-</strong>
+            </div>
+            <div class="admin-list-controls compact-controls">
+              <button type="button" id="admin-refresh-users">조회</button>
+            </div>
+          </div>
+          <p class="admin-season-note">
+            Google로 한 번 로그인한 계정만 목록에 표시됩니다. 권한 저장 후 해당 사용자는 새로고침하면 관리 기능을 사용할 수 있습니다.
+          </p>
+          <p class="admin-player-message" id="admin-user-message"></p>
+          <div class="table-wrap compact-table admin-user-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>계정</th>
+                  <th>상태</th>
+                  <th>권한</th>
+                  <th>관리</th>
+                </tr>
+              </thead>
+              <tbody id="admin-user-body"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="admin-card admin-mmr-panel admin-panel" data-admin-panel="mmr" hidden>
+          <div class="admin-list-heading">
+            <div>
+              <span>MMR 설정</span>
+              <strong id="admin-mmr-status">-</strong>
+            </div>
+          </div>
+          <p class="admin-season-note" id="admin-mmr-lock-message">
+            여기서 저장한 규칙은 다음 시즌을 시작할 때 확정됩니다. 진행중·마감 시즌의 규칙은 바뀌지 않습니다.
+          </p>
+
+          <div class="mmr-guide">
+            <article>
+              <h3>점수 규칙 안내</h3>
+              <p>
+                MMR은 경기 결과, 내 점수와 상대팀 평균 점수 차이, 경기 스코어를 함께 반영합니다.
+                배치 중인 플레이어는 배치 완료 전까지 0점으로 유지되고, 배치 완료 경기에서
+                최초 점수와 배치 승리 보너스가 한 번에 반영됩니다.
+              </p>
+              <p>
+                K값은 한 경기의 점수 변동 규모입니다. 높을수록 승패 한 판이 순위에 더 크게 반영됩니다.
+                기대값 상수는 점수 차이에 대한 민감도입니다. 낮을수록 강팀을 이겼을 때 보상이 커지고,
+                약팀에게 졌을 때 감점이 커집니다.
+              </p>
+            </article>
+            <article>
+              <h3>예시</h3>
+              <ul>
+                <li>승리 K값 30/40/60은 같은 점수대 승리 시 대략 +15/+20/+30점 규모입니다.</li>
+                <li>패배 K값이 높을수록 같은 조건의 패배 감점이 커집니다.</li>
+                <li>기대값 상수가 낮으면 강팀 승리 보상과 약팀 패배 감점이 더 커집니다.</li>
+                <li>5:4 패배는 덜 깎이고, 5:1 패배는 더 크게 깎입니다.</li>
+              </ul>
+            </article>
+          </div>
+
+          <form class="admin-mmr-form" id="admin-mmr-form">
+            <div class="mmr-tabbar" role="tablist" aria-label="MMR 설정 구분">
+              <button type="button" class="active" data-mmr-tab="rule">점수 규칙</button>
+              <button type="button" data-mmr-tab="tier">티어 기준</button>
+            </div>
+
+            <div class="admin-mmr-section active" data-mmr-section="rule">
+              <section>
+              <h3>기본 점수</h3>
+              <label>
+                <span>최초 점수</span>
+                <input type="number" data-scoring-field="initial_score" min="0" max="5000" step="1" />
+                <small>배치 완료 시 기준이 되는 시작 점수입니다.</small>
+              </label>
+              <label>
+                <span>배치 경기 수</span>
+                <input type="number" data-scoring-field="placement_game_count" min="1" max="100" step="1" />
+                <small>이 경기 수를 채우기 전까지 점수는 0으로 유지됩니다.</small>
+              </label>
+              <label>
+                <span>배치 승리 점수</span>
+                <input type="number" data-scoring-field="placement_win_points" min="0" max="500" step="1" />
+                <small>배치 완료 점수 계산 시 승리 1회당 더하는 점수입니다.</small>
+              </label>
+              <label>
+                <span>올캐릭 보너스 비율</span>
+                <input type="number" data-scoring-field="all_character_bonus_ratio" min="0" max="2" step="0.01" />
+                <small>올캐릭 승리 시 승리 보상에 추가로 곱해지는 비율입니다.</small>
+              </label>
+              <label>
+                <span>패배 보정 비율</span>
+                <input type="number" data-scoring-field="loss_scale" min="0" max="2" step="0.01" />
+                <small>패배 감점 전체에 곱해지는 완화 비율입니다.</small>
+              </label>
+              </section>
+
+              <section>
+                <h3>변동폭</h3>
+                <label>
+                  <span>승리 K값</span>
+                  <input type="number" data-scoring-field="winner_k" min="1" max="500" step="0.1" />
+                  <small>승리 한 판의 기본 점수 규모입니다. 높을수록 승리 보상이 커집니다.</small>
+                </label>
+                <label>
+                  <span>패배 K값</span>
+                  <input type="number" data-scoring-field="loser_k" min="1" max="500" step="0.1" />
+                  <small>패배 한 판의 기본 감점 규모입니다. 높을수록 패배 감점이 커집니다.</small>
+                </label>
+                <label>
+                  <span>승리 기대값 상수</span>
+                  <input type="number" data-scoring-field="winner_expected_score_constant" min="1" max="5000" step="1" />
+                  <small>낮을수록 이변 승리 보상이 커지고, 유리한 경기 승리 보상은 작아집니다.</small>
+                </label>
+                <label>
+                  <span>패배 기대값 상수</span>
+                  <input type="number" data-scoring-field="loser_expected_score_constant" min="1" max="5000" step="1" />
+                  <small>낮을수록 유리한 경기 패배 감점이 커지고, 불리한 경기 패배 감점은 작아집니다.</small>
+                </label>
+              </section>
+            </div>
+
+            <section class="admin-mmr-section tier-editor" data-mmr-section="tier">
+              <div>
+                <h3>티어 기준</h3>
+                <p>랭킹 화면에서 점수 구간별로 표시할 티어 기준입니다. 높은 티어 기준점이 낮은 티어보다 커야 합니다.</p>
+              </div>
+              <label>
+                <span>마스터 이상</span>
+                <input type="number" data-tier-field="마스터" min="0" max="5000" step="1" />
+              </label>
+              <label>
+                <span>다이아 이상</span>
+                <input type="number" data-tier-field="다이아" min="0" max="5000" step="1" />
+              </label>
+              <label>
+                <span>플래티넘 이상</span>
+                <input type="number" data-tier-field="플래티넘" min="0" max="5000" step="1" />
+              </label>
+              <label>
+                <span>골드 이상</span>
+                <input type="number" data-tier-field="골드" min="0" max="5000" step="1" />
+              </label>
+              <label>
+                <span>실버 이상</span>
+                <input type="number" data-tier-field="실버" min="0" max="5000" step="1" />
+              </label>
+            </section>
+
+            <div class="admin-mmr-actions">
+              <button type="button" id="admin-mmr-simulate">시뮬레이션</button>
+              <button type="submit" class="primary" id="admin-mmr-save">저장</button>
+            </div>
+          </form>
+          <p class="admin-player-message" id="admin-mmr-message"></p>
+        </article>
+      </section>
+    </main>
+
+    <div class="modal-backdrop" id="season-rule-modal" hidden>
+      <div class="modal-card season-rule-card" role="dialog" aria-modal="true" aria-labelledby="season-rule-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Season Rule</p>
+            <h3 id="season-rule-title">시즌 MMR 규칙</h3>
+            <p id="season-rule-subtitle" class="modal-subtitle">-</p>
+          </div>
+          <button type="button" class="modal-close" id="season-rule-close" aria-label="닫기">×</button>
+        </div>
+        <div class="season-rule-content" id="season-rule-content"></div>
+        <div class="modal-actions season-rule-actions">
+          <button type="button" id="season-rule-confirm">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="result-edit-modal" hidden>
+      <div class="modal-card result-edit-card" role="dialog" aria-modal="true" aria-labelledby="result-edit-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Result Edit</p>
+            <h3 id="result-edit-title">경기 결과 수정</h3>
+            <p id="result-edit-meta" class="modal-subtitle">-</p>
+          </div>
+          <button type="button" class="modal-close" id="result-edit-close" aria-label="닫기">×</button>
+        </div>
+
+        <form id="result-edit-form" class="result-edit-form">
+          <div class="result-edit-teams" id="result-edit-teams"></div>
+
+          <div class="result-edit-section">
+            <span class="result-edit-label">승리팀</span>
+            <div class="result-edit-winner-grid">
+              <label class="winner-option">
+                <input type="radio" name="result-edit-winner-side" id="result-edit-winner-a" value="A" />
+                <span>1팀 승리</span>
+              </label>
+              <label class="winner-option">
+                <input type="radio" name="result-edit-winner-side" id="result-edit-winner-b" value="B" />
+                <span>2팀 승리</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="result-edit-score-grid">
+            <label>
+              <span>1팀 점수</span>
+              <input id="result-edit-score-a" type="number" min="0" step="1" required />
+            </label>
+            <label>
+              <span>2팀 점수</span>
+              <input id="result-edit-score-b" type="number" min="0" step="1" required />
+            </label>
+          </div>
+
+          <p class="result-edit-help">
+            팀 구성은 변경하지 않고 승리팀과 스코어만 수정합니다. 저장하면 해당 시즌 랭킹/통계가 다시 계산됩니다.
+          </p>
+          <p class="admin-player-message" id="result-edit-message"></p>
+
+          <div class="modal-actions">
+            <button type="button" id="result-edit-cancel">취소</button>
+            <button type="submit" class="primary" id="result-edit-save">저장</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="mmr-simulator-modal" hidden>
+      <div class="modal-card mmr-simulator-card" role="dialog" aria-modal="true" aria-labelledby="mmr-simulator-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">MMR Simulation</p>
+            <h3 id="mmr-simulator-title">점수 변동 시뮬레이션</h3>
+            <p class="modal-subtitle">배치 완료 이후 플레이어 기준으로 승리/패배 예상 점수를 계산합니다.</p>
+          </div>
+          <button type="button" class="modal-close" id="mmr-simulator-close" aria-label="닫기">×</button>
+        </div>
+        <form class="mmr-simulator-form" id="mmr-simulator-form">
+          <label>
+            <span>내 점수</span>
+            <input type="number" id="sim-my-score" min="0" max="5000" step="1" value="1200" />
+          </label>
+          <label>
+            <span>상대팀 평균 점수</span>
+            <input type="number" id="sim-opponent-score" min="0" max="5000" step="1" value="1200" />
+          </label>
+          <label>
+            <span>승리팀 스코어</span>
+            <input type="number" id="sim-winner-score" min="1" max="99" step="1" value="5" />
+          </label>
+          <label>
+            <span>패배팀 스코어</span>
+            <input type="number" id="sim-loser-score" min="0" max="98" step="1" value="3" />
+          </label>
+          <div class="mmr-simulator-divider">
+            <span>계산 변수</span>
+            <small>관리 화면의 저장값과 별개로 이 팝업 안에서만 바꿔가며 테스트합니다.</small>
+          </div>
+          <label>
+            <span>최초 점수</span>
+            <input type="number" data-sim-config-field="initial_score" min="0" max="5000" step="1" />
+            <small>배치 완료 계산용 값입니다. 아래 승패 예상은 배치 이후 기준이라 직접 반영되지는 않습니다.</small>
+          </label>
+          <label>
+            <span>배치 경기 수</span>
+            <input type="number" data-sim-config-field="placement_game_count" min="1" max="100" step="1" />
+            <small>배치 규칙 확인용 값입니다.</small>
+          </label>
+          <label>
+            <span>배치 승리 점수</span>
+            <input type="number" data-sim-config-field="placement_win_points" min="0" max="500" step="1" />
+            <small>배치 완료 점수 계산용 값입니다.</small>
+          </label>
+          <label>
+            <span>올캐릭 보너스 비율</span>
+            <input type="number" data-sim-config-field="all_character_bonus_ratio" min="0" max="2" step="0.01" />
+            <small>아래 옵션을 켰을 때 승리 보상에 추가 반영됩니다.</small>
+          </label>
+          <label>
+            <span>승리 K값</span>
+            <input type="number" data-sim-config-field="winner_k" min="1" max="500" step="0.1" />
+          </label>
+          <label>
+            <span>패배 K값</span>
+            <input type="number" data-sim-config-field="loser_k" min="1" max="500" step="0.1" />
+          </label>
+          <label>
+            <span>승리 기대값 상수</span>
+            <input type="number" data-sim-config-field="winner_expected_score_constant" min="1" max="5000" step="1" />
+          </label>
+          <label>
+            <span>패배 기대값 상수</span>
+            <input type="number" data-sim-config-field="loser_expected_score_constant" min="1" max="5000" step="1" />
+          </label>
+          <label>
+            <span>패배 보정 비율</span>
+            <input type="number" data-sim-config-field="loss_scale" min="0" max="2" step="0.01" />
+          </label>
+          <label class="inline-check mmr-sim-check">
+            <input type="checkbox" id="sim-all-character" />
+            <span>이번 승리에 올캐릭 보너스 적용</span>
+          </label>
+          <div class="mmr-simulator-result" id="mmr-simulator-result"></div>
+          <div class="modal-actions">
+            <button type="button" id="mmr-simulator-cancel">닫기</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/assets/app.js?v=20260712-33"></script>
+  </body>
+</html>

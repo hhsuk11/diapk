@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: pvpgg
+      POSTGRES_USER: pvp
+      POSTGRES_PASSWORD: pvp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pvp -d pvpgg"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      APP_ENV: docker
+      AUTH_MODE: dev
+      DEV_ADMIN_EMAIL: dev-admin@example.local
+      DATABASE_URL: postgresql+psycopg://pvp:pvp@db:5432/pvpgg
+      SESSION_SECRET: docker-local-change-me
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./참조정보:/app/reference:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

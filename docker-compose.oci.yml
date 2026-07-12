@@ -1,0 +1,15 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - .env
+    environment:
+      MALLOC_ARENA_MAX: "2"
+    ports:
+      - "127.0.0.1:${APP_PORT:-8000}:8000"
+    volumes:
+      - ./pvpgg.local.db:/app/pvpgg.local.db
+    mem_limit: 512m
+    restart: unless-stopped

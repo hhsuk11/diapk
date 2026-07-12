@@ -1,0 +1,1510 @@
+function getCurrentSeason(){
+  const seasonSS= SpreadsheetApp.getActiveSpreadsheet();
+  const seasonForm = seasonSS.getSheetByName("시즌목록");
+  const seasonValue = seasonForm.getRange(2,5).getValue();
+
+  return seasonValue;
+  
+}
+
+function getGameId(){
+  let gameId = 'G' + (Utilities.formatDate(new Date(),'GMT+9', 'yyMMddHHmmss')).toString()
+  
+  return gameId;
+}
+
+class HistClass {
+  constructor( winTeamList, loseTeamList,winnerPoint, loserPoint, dPlayDate, dInputDate, currentSeason, gameId, allCharInfo ) {
+    this.winTeamList = winTeamList;
+    this.loseTeamList = loseTeamList;
+    this.winnerPoint = winnerPoint;
+    this.loserPoint = loserPoint;
+    this.dPlayDate = dPlayDate;
+    this.dInputDate = dInputDate;
+    this.currentSeason = currentSeason;
+    this.gameId = gameId;
+    this.allCharInfo = allCharInfo;
+  }
+}
+function sort_stat(){
+  let ss= SpreadsheetApp.getActiveSpreadsheet();
+
+  let datasheet = ss.getSheetByName("전적확인");
+
+  var lastRow = datasheet.getLastRow();
+  var qRange = datasheet.getRange("Q2:Q" + lastRow); //순위
+  
+  // W열의 목표 범위를 가져옵니다.
+  var wRange = datasheet.getRange("W2:W" + lastRow); //이전 순위
+  
+  // Q열의 값(함수가 아닌 결과값)을 가져옵니다.
+  var qValues = qRange.getValues();
+  
+  // W열에 Q열의 값들을 붙여넣습니다.
+  wRange.setValues(qValues);
+
+
+  datasheet.getRange("A2:Y"+datasheet.getLastRow()).sort([{column : 18, ascending : false}, 
+                                                          {column : 10, ascending : false},
+                                                          {column : 11, ascending : true},
+                                                          {column : 19, ascending : true}]);
+}
+
+function sortByWinRate() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("사용자목록"); // 시트 이름 변경 가능
+  var range = sheet.getDataRange();
+  var values = range.getValues(); // 셀 값 가져오기
+  var formulas = range.getFormulas(); // 셀의 함수 가져오기
+
+  var header = values[0]; // 헤더 저장
+  var data = values.slice(1); // 헤더 제외한 데이터
+
+  var winRateIndex = 10; // K열 (승률) 인덱스 (0부터 시작)
+  var totalGamesIndex = 7; // H열 (총 경기수) 인덱스
+  var totalWinsIndex = 8; // I열 (총 승리수) 인덱스
+  var minGames = 100; // 최소 경기 수
+
+  // H열이 함수인 경우에도 값을 가져와서 비교
+  var dataWithValues = data.map((row, i) => {
+    return {
+      index: i, // 원래 인덱스를 저장하여 나중에 순서 복원
+      values: row, // 원래 데이터 저장
+      totalGames: sheet.getRange(i + 2, totalGamesIndex + 1).getValue(), // H열의 실제 값 가져오기
+      winRate: row[winRateIndex], // K열 (승률)
+      totalWins: row[totalWinsIndex] // I열 (총 승리수)
+    };
+  });
+
+  // H열이 100 이상이면 승률(K열) 기준 정렬, 미만이면 총 승리수(I열) 기준 정렬
+  dataWithValues.sort((a, b) => {
+    if (a.totalGames >= minGames && b.totalGames >= minGames) {
+      return b.winRate - a.winRate; // 승률 기준 내림차순 정렬
+    } else if (a.totalGames < minGames && b.totalGames < minGames) {
+      return b.totalWins - a.totalWins; // 총 승리수 기준 내림차순 정렬
+    } else {
+      return a.totalGames >= minGames ? -1 : 1; // 100 이상인 데이터를 우선 정렬
+    }
+  });
+
+  // 정렬된 데이터만 추출하여 업데이트 (수식이 있는 경우 수식 복원)
+  var sortedValues = dataWithValues.map(rowData => rowData.values);
+
+  // 기존 데이터 삭제 후, 정렬된 데이터 삽입
+  sheet.getRange(2, 1, data.length, data[0].length).clearContent();
+  sheet.getRange(2, 1, sortedValues.length, sortedValues[0].length).setValues(sortedValues);
+
+  // 모든 수식 복원
+  for (var r = 1; r < values.length; r++) { // 1부터 시작 (헤더 제외)
+    for (var c = 0; c < values[0].length; c++) {
+      if (formulas[r][c]) { // 해당 셀이 함수라면
+        sheet.getRange(r + 1, c + 1).setFormula(formulas[r][c]); // 원래 수식 복원
+      }
+    }
+  }
+}
+
+
+function inputPointHist(userId, dPlayDate, point, gameId){
+  let ss= SpreadsheetApp.getActiveSpreadsheet();
+
+  let datasheet = ss.getSheetByName("포인트변동");
+
+  datasheet.insertRowAfter(1);
+
+  //순서
+  datasheet.getRange(2,1).setFormula("=Row()-1");
+
+  //경기날짜
+  datasheet.getRange(2,2).setValue(dPlayDate);
+
+  //ID
+  datasheet.getRange(2,3).setValue(userId);
+
+  //포인트
+  datasheet.getRange(2,4).setValue(point);
+
+  //시즌
+  datasheet.getRange(2,5).setValue(getCurrentSeason());
+
+  //게임ID
+  datasheet.getRange(2,6).setValue(gameId);
+
+}
+
+function apply_discord(){
+  //let SPREADSHEET_NAME = "기록입력";
+  
+  let ss = SpreadsheetApp.getActiveSpreadsheet();
+  let formSS = ss.getSheetByName("기록입력_디스코드");
+
+  let datasheet = ss.getSheetByName("전적확인");
+
+  let scoresheet = ss.getSheetByName("점수MMR_디스코드");
+  //let blocksheet = ss.getSheetByName("블럭사용자");
+  let usersheet = ss.getSheetByName("사용자목록");
+  let discordsheet = ss.getSheetByName("디스코드 연동");
+
+  let gameId = getGameId();
+  let arrValue = [];
+
+  let availUser = [];
+  availUser = usersheet.getRange(2,1, usersheet.getLastRow()-1, 1 ).getValues();
+  let availUserList = [];
+  for (let i=0; i<availUser.length; i++){
+    availUserList.push(availUser[i][0]);
+  }
+
+/*
+  let blockUser = [];
+  blockUser = blocksheet.getRange(2, 1, blocksheet.getLastRow()-1, 1).getValues();
+  let blockUserList = [];
+  for (let i=0; i<blockUser.length; i++){
+    blockUserList.push(blockUser[i][0]);
+  }
+*/
+
+  let dw = formSS.getRange("A5").getValue();
+  let aw = formSS.getRange("B5").getValue();
+  let nw = formSS.getRange("C5").getValue();
+  let sw = formSS.getRange("D5").getValue();
+  let dl = formSS.getRange("A8").getValue();
+  let al = formSS.getRange("B8").getValue();
+  let nl = formSS.getRange("C8").getValue();
+  let sl = formSS.getRange("D8").getValue();
+
+  if(!availUserList.includes(dw))
+  {
+    dw = '미등록';
+  }
+  if(!availUserList.includes(aw))
+  {
+    aw = '미등록';
+  }
+  if(!availUserList.includes(nw))
+  {
+    nw = '미등록';
+  }
+  if(!availUserList.includes(sw))
+  {
+    sw = '미등록';
+  }
+  if(!availUserList.includes(dl))
+  {
+    dl = '미등록';
+  }
+  if(!availUserList.includes(al))
+  {
+    al = '미등록';
+  }
+  if(!availUserList.includes(nl))
+  {
+    nl = '미등록';
+  }
+  if(!availUserList.includes(sl))
+  {
+    sl = '미등록';
+  }
+
+  arrValue.push([dw]);  
+  arrValue.push([aw]);
+  arrValue.push([nw]);
+  arrValue.push([sw]);
+  arrValue.push([dl]);
+  arrValue.push([al]);
+  arrValue.push([nl]);
+  arrValue.push([sl]);
+
+  let dwPoint = scoresheet.getRange("D2").getValue();
+  let awPoint = scoresheet.getRange("D3").getValue();
+  let nwPoint = scoresheet.getRange("D4").getValue();
+  let swPoint = scoresheet.getRange("D5").getValue();
+  
+  let dlPoint = scoresheet.getRange("I2").getValue();
+  let alPoint = scoresheet.getRange("I3").getValue();
+  let nlPoint = scoresheet.getRange("I4").getValue();
+  let slPoint = scoresheet.getRange("I5").getValue();
+  
+  let dwChangePoint = scoresheet.getRange("E2").getValue();
+  if(!availUserList.includes(dw))
+  {
+    dwChangePoint = '-';
+  }
+  let awChangePoint = scoresheet.getRange("E3").getValue();
+  if(!availUserList.includes(aw))
+  {
+    awChangePoint = '-';
+  }
+  let nwChangePoint = scoresheet.getRange("E4").getValue();
+  if(!availUserList.includes(nw))
+  {
+    nwChangePoint = '-';
+  }
+  let swChangePoint = scoresheet.getRange("E5").getValue();
+  if(!availUserList.includes(sw))
+  {
+    swChangePoint = '-';
+  }
+  
+  let dlChangePoint = scoresheet.getRange("J2").getValue();
+  if(!availUserList.includes(dl))
+  {
+    dlChangePoint = '-';
+  }
+  let alChangePoint = scoresheet.getRange("J3").getValue();
+  if(!availUserList.includes(al))
+  {
+    alChangePoint = '-';
+  }
+  let nlChangePoint = scoresheet.getRange("J4").getValue();
+  if(!availUserList.includes(nl))
+  {
+    nlChangePoint = '-';
+  }
+  let slChangePoint = scoresheet.getRange("J5").getValue();
+  if(!availUserList.includes(sl))
+  {
+    slChangePoint = '-';
+  }
+
+  let defaultPoint = scoresheet.getRange("N2").getValue();
+  
+  let minPlayCount = scoresheet.getRange("O2").getValue();
+
+  let dPlayDate = formSS.getRange("A2").getValue();
+  dPlayDate = Utilities.formatDate(new Date(dPlayDate),'GMT+9', 'yyyy-MM-dd HH:mm');
+
+  let ppPoint = scoresheet.getRange("P2").getValue();
+  let allCharPointRatio = scoresheet.getRange("S2").getValue();
+
+  let bDw = false;
+  let bAw = false;
+  let bNw = false;
+  let bSw = false;
+  let bDl = false;
+  let bAl = false;
+  let bNl = false;
+  let bSl = false;
+
+  const startCol = 2;
+  const lastRow = datasheet.getLastRow();
+
+  for (let i=0; i<arrValue.length; i++){
+    for ( let j=startCol; j<=lastRow+1; j++){
+      let tempId = datasheet.getRange(j,1).getValue();
+      let totalGameCount = datasheet.getRange(j,10).getValue() + datasheet.getRange(j,11).getValue() + 1
+      let winGameCount = datasheet.getRange(j,10).getValue();
+      let prevGameCount = datasheet.getRange(j,21).getValue();
+
+      if( tempId == arrValue[i]){
+        if( arrValue[i] == '미등록'){
+          //Do Nothing
+        }
+        else if( arrValue[i] == dw){
+          bDw = true;
+          let target = datasheet.getRange(j,2).getValue() + 1;
+          datasheet.getRange(j,2).setValue(target);
+          if( minPlayCount > totalGameCount ){
+            datasheet.getRange(j,18).setValue(0);
+            dwChangePoint = '-';
+            if( scoresheet.getRange("Q2").getValue() == "Y"){
+                datasheet.getRange(j,21).setValue( prevGameCount + 1);
+            }
+          }
+          else if( minPlayCount == totalGameCount ){
+            //datasheet.getRange(j,18).setValue( defaultPoint + (winGameCount+1) * ppPoint);
+            //dwChangePoint = (winGameCount+1) * ppPoint;
+
+            if( scoresheet.getRange("Q2").getValue() == "Y"){
+                datasheet.getRange(j,21).setValue( prevGameCount + 1);
+                datasheet.getRange(j,18).setValue(defaultPoint + ((winGameCount+1) * ppPoint) + ((prevGameCount + 1) * ppPoint ) * allCharPointRatio );
+                dwChangePoint = ((winGameCount+1) * ppPoint) + ((prevGameCount + 1) * ppPoint ) * allCharPointRatio;
+            }
+            else{
+                datasheet.getRange(j,18).setValue(defaultPoint + ((winGameCount+1) * ppPoint) + (prevGameCount * ppPoint ) * allCharPointRatio );
+                dwChangePoint = ((winGameCount+1) * ppPoint) + (prevGameCount * ppPoint ) * allCharPointRatio;
+            }
+
+            inputPointHist(dw, dPlayDate, defaultPoint + (winGameCount+1) * ppPoint, gameId);
+          }
+          else{
+            datasheet.getRange(j,18).setValue(dwPoint);
+            inputPointHist(dw, dPlayDate, dwPoint, gameId);
+          }
+        }
+        else if( arrValue[i] == aw){
+          bAw = true;
+          let target = datasheet.getRange(j,4).getValue() + 1;
+          datasheet.getRange(j,4).setValue(target);
+          if( minPlayCount > totalGameCount ){
+            datasheet.getRange(j,18).setValue(0);
+            awChangePoint = '-';
+            if( scoresheet.getRange("Q3").getValue() == "Y"){
+                datasheet.getRange(j,21).setValue( prevGameCount + 1);
+            }
+          }
+          else if( minPlayCount == totalGameCount ){
+            //datasheet.getRange(j,18).setValue(defaultPoint + (winGameCount+1) * ppPoint);
+            //awChangePoint = (winGameCount+1) * ppPoint;
+            if( scoresheet.getRange("Q3").getValue() == "Y"){
+                datasheet.getRange(j,21).setValue( prevGameCount + 1);
+                datasheet.getRange(j,18).setValue(defaultPoint + ((winGameCount+1) * ppPoint) + ((prevGameCount + 1) * ppPoint ) * allCharPointRatio );
+                awChangePoint = ((winGameCount+1) * ppPoint) + ((prevGameCount + 1) * ppPoint ) * allCharPointRatio;
+            }
+            else{
+                datasheet.getRange(j,18).setValue(defaultPoint + ((winGameCount+1) * ppPoint) + (prevGameCount * ppPoint ) * allCharPointRatio );
+                awChangePoint = ((winGameCount+1) * ppPoint) + (prevGameCount * ppPoint ) * allCharPointRatio;
+            }
+
+            inputPointHist(aw, dPlayDate, defaultPoint + (winGameCount+1) * ppPoint, gameId);
+          }
+          else{
+            datasheet.getRange(j,18).setValue(awPoint);
+            inputPointHist(aw, dPlayDate, awPoint, gameId);
+          }      
+        }
+        else if( arrValue[i] == nw){
+          bNw = true;
+          let target = datasheet.getRange(j,6).getValue() + 1;
+          datasheet.getRange(j,6).setValue(target);
+          if( minPlayCount > totalGameCount ){
+            datasheet.getRange(j,18).setValue(0);
+            nwChangePoint = '-';
+            if( scoresheet.getRange("Q4").getValue() == "Y"){
+                datasheet.getRange(j,21).setValue( prevGameCount + 1);
+            }
+          }
+          else if( minPlayCount == totalGameCount ){
+            //datasheet.getRange(j,18).setValue(defaultPoint + (winGameCount+1) * ppPoint);
+            //nwChangePoint = (winGameCount+1) * ppPoint;
+            if( scoresheet.getRange("Q4").getValue() == "Y"){
+                datasheet.getRange(j,21).setValue( prevGameCount + 1);
+                datasheet.getRange(j,18).setValue(defaultPoint + ((winGameCount+1) * ppPoint) + ((prevGameCount + 1) * ppPoint ) * allCharPointRatio );
+                nwChangePoint = ((winGameCount+1) * ppPoint) + ((prevGameCount + 1) * ppPoint ) * allCharPointRatio;
+            }
+            else{
+                datasheet.getRange(j,18).setValue(defaultPoint + ((winGameCount+1) * ppPoint) + (prevGameCount * ppPoint ) * allCharPointRatio );
+                nwChangePoint = ((winGameCount+1) * ppPoint) + (prevGameCount * ppPoint ) * allCharPointRatio;
+            }
+            inputPointHist(nw, dPlayDate, defaultPoint + (winGameCount+1) * ppPoint, gameId);
+          }
+          else{
+            datasheet.getRange(j,18).setValue(nwPoint);
+            inputPointHist(nw, dPlayDate, nwPoint, gameId);
+          }          
+        }                
+        else if( arrValue[i] == sw){
+          bSw = true;
+          let target = datasheet.getRange(j,8).getValue() + 1;
+          datasheet.getRange(j,8).setValue(target);
+          if( minPlayCount > totalGameCount ){
+            datasheet.getRange(j,18).setValue(0);
+            swChangePoint = '-';
+            if( scoresheet.getRange("Q5").getValue() == "Y"){
+                datasheet.getRange(j,21).setValue( prevGameCount + 1);
+            }
+          }
+          else if( minPlayCount == totalGameCount ){
+            //datasheet.getRange(j,18).setValue(defaultPoint + (winGameCount+1) * ppPoint);
+            //swChangePoint = (winGameCount+1) * ppPoint;
+            if( scoresheet.getRange("Q5").getValue() == "Y"){
+                datasheet.getRange(j,21).setValue( prevGameCount + 1);
+                datasheet.getRange(j,18).setValue(defaultPoint + ((winGameCount+1) * ppPoint) + ((prevGameCount + 1) * ppPoint ) * allCharPointRatio );
+                swChangePoint = ((winGameCount+1) * ppPoint) + ((prevGameCount + 1) * ppPoint ) * allCharPointRatio;
+            }
+            else{
+                datasheet.getRange(j,18).setValue(defaultPoint + ((winGameCount+1) * ppPoint) + (prevGameCount * ppPoint ) * allCharPointRatio );
+                swChangePoint = ((winGameCount+1) * ppPoint) + (prevGameCount * ppPoint ) * allCharPointRatio;
+            }
+            inputPointHist(sw, dPlayDate, defaultPoint + (winGameCount+1) * ppPoint, gameId);
+          }
+          else{
+            datasheet.getRange(j,18).setValue(swPoint);
+            inputPointHist(sw, dPlayDate, swPoint, gameId);
+          }
+        }
+        else if( arrValue[i] == dl){
+          bDl = true;
+          let target = datasheet.getRange(j,3).getValue() + 1;
+          datasheet.getRange(j,3).setValue(target);
+          if( minPlayCount > totalGameCount ){
+            datasheet.getRange(j,18).setValue(0);
+            dlChangePoint = '-';
+          }
+          else if( minPlayCount == totalGameCount ){
+            datasheet.getRange(j,18).setValue(defaultPoint + winGameCount * ppPoint + ((prevGameCount * ppPoint ) * allCharPointRatio));
+            dlChangePoint = winGameCount * ppPoint + ((prevGameCount * ppPoint ) * allCharPointRatio);
+
+            inputPointHist(dl, dPlayDate, defaultPoint + winGameCount * ppPoint, gameId);
+          }
+          else{
+            datasheet.getRange(j,18).setValue(dlPoint);
+            inputPointHist(dl, dPlayDate, dlPoint, gameId);
+          }          
+        }                
+        else if( arrValue[i] == al){
+          bAl = true;
+          let target = datasheet.getRange(j,5).getValue() + 1;
+          datasheet.getRange(j,5).setValue(target);
+          if( minPlayCount > totalGameCount ){
+            datasheet.getRange(j,18).setValue(0);
+            alChangePoint = '-';
+          }
+          else if( minPlayCount == totalGameCount ){
+            datasheet.getRange(j,18).setValue(defaultPoint + winGameCount * ppPoint + ((prevGameCount * ppPoint ) * allCharPointRatio));
+            alChangePoint = winGameCount * ppPoint + ((prevGameCount * ppPoint ) * allCharPointRatio);
+
+            inputPointHist(al, dPlayDate, defaultPoint + winGameCount * ppPoint, gameId);
+          }
+          else{
+            datasheet.getRange(j,18).setValue(alPoint);
+            inputPointHist(al, dPlayDate, alPoint, gameId);
+          }          
+        }        
+        else if( arrValue[i] == nl){
+          bNl = true;
+          let target = datasheet.getRange(j,7).getValue() + 1;
+          datasheet.getRange(j,7).setValue(target);
+          if( minPlayCount > totalGameCount ){
+            datasheet.getRange(j,18).setValue(0);
+            nlChangePoint = '-';
+          }
+          else if( minPlayCount == totalGameCount ){
+            datasheet.getRange(j,18).setValue(defaultPoint + winGameCount * ppPoint + ((prevGameCount * ppPoint ) * allCharPointRatio));
+            nlChangePoint = winGameCount * ppPoint + ((prevGameCount * ppPoint ) * allCharPointRatio);
+
+            inputPointHist(nl, dPlayDate, defaultPoint + winGameCount * ppPoint, gameId);
+          }
+          else{
+            datasheet.getRange(j,18).setValue(nlPoint);
+            inputPointHist(nl, dPlayDate, nlPoint, gameId);
+          }                    
+        }
+        else if( arrValue[i] == sl){
+          bSl = true;
+          let target = datasheet.getRange(j,9).getValue() + 1;
+          datasheet.getRange(j,9).setValue(target);
+          if( minPlayCount > totalGameCount ){
+            datasheet.getRange(j,18).setValue(0);
+            slChangePoint = '-';
+          }
+          else if( minPlayCount == totalGameCount ){
+            datasheet.getRange(j,18).setValue(defaultPoint + winGameCount * ppPoint + ((prevGameCount * ppPoint ) * allCharPointRatio));
+            slChangePoint = winGameCount * ppPoint + ((prevGameCount * ppPoint ) * allCharPointRatio);
+
+            inputPointHist(sl, dPlayDate, defaultPoint + winGameCount * ppPoint, gameId);
+          }
+          else{
+            datasheet.getRange(j,18).setValue(slPoint);
+            inputPointHist(sl, dPlayDate, slPoint, gameId);
+          }
+        }
+        datasheet.getRange(j,19).setValue(dPlayDate);                
+      }
+    }//for j End
+  }// for i end
+
+
+// 신규 전적 등록 케이스
+  if (!bDw && availUserList.includes(dw)) {
+    let defaultValue = [dw, 0, 0, 0, 0, 0, 0, 0, 0];
+    datasheet.getRange(datasheet.getLastRow() + 1, 1, 1, 9).setValues([defaultValue]);
+    datasheet.getRange(datasheet.getLastRow(), 2).setValue(1);
+    datasheet.getRange('J2:Q2').copyTo(datasheet.getRange(datasheet.getLastRow(), 10, 1,8 ));
+    datasheet.getRange(datasheet.getLastRow(),18).setValue(0);
+    datasheet.getRange(datasheet.getLastRow(),19).setValue(dPlayDate);
+    dwChangePoint = '-';
+    /*if(blockUserList.includes(dw)){
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('Y');
+    }
+    else{
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+    }*/
+    datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+
+    if( scoresheet.getRange("Q2").getValue() == "Y"){
+      datasheet.getRange(datasheet.getLastRow(),21).setValue(1);
+    }
+    else{
+      datasheet.getRange(datasheet.getLastRow(),21).setValue(0);
+    }
+    datasheet.getRange('V2').copyTo(datasheet.getRange(datasheet.getLastRow(), 22 ));
+    datasheet.getRange('X2').copyTo(datasheet.getRange(datasheet.getLastRow(), 24 ));
+  }
+  if (!bAw && availUserList.includes(aw)) {
+    let defaultValue = [aw, 0, 0, 0, 0, 0, 0, 0, 0];
+    datasheet.getRange(datasheet.getLastRow() + 1, 1, 1, 9).setValues([defaultValue]);
+    datasheet.getRange(datasheet.getLastRow(), 4).setValue(1);
+    datasheet.getRange('J2:Q2').copyTo(datasheet.getRange(datasheet.getLastRow(), 10, 1,8 ));
+    datasheet.getRange(datasheet.getLastRow(),18).setValue(0);
+    datasheet.getRange(datasheet.getLastRow(),19).setValue(dPlayDate);
+    awChangePoint = '-';
+    /*if(blockUserList.includes(aw)){
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('Y');
+    }
+    else{
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+    }*/
+    datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+
+    if( scoresheet.getRange("Q3").getValue() == "Y"){
+      datasheet.getRange(datasheet.getLastRow(),21).setValue(1);
+    }
+    else{
+      datasheet.getRange(datasheet.getLastRow(),21).setValue(0);
+    }
+    datasheet.getRange('V2').copyTo(datasheet.getRange(datasheet.getLastRow(), 22 ));
+    datasheet.getRange('X2').copyTo(datasheet.getRange(datasheet.getLastRow(), 24 ));
+  }
+  
+  if (!bNw && availUserList.includes(nw)) {
+    let defaultValue = [nw, 0, 0, 0, 0, 0, 0, 0, 0];
+    datasheet.getRange(datasheet.getLastRow() + 1, 1, 1, 9).setValues([defaultValue]);
+    datasheet.getRange(datasheet.getLastRow(), 6).setValue(1);
+    datasheet.getRange('J2:Q2').copyTo(datasheet.getRange(datasheet.getLastRow(), 10, 1,8 ));
+    datasheet.getRange(datasheet.getLastRow(),18).setValue(0);
+    datasheet.getRange(datasheet.getLastRow(),19).setValue(dPlayDate);
+    nwChangePoint = '-';
+    /*if(blockUserList.includes(nw)){
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('Y');
+    }
+    else{
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+    }*/
+    datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+    if( scoresheet.getRange("Q4").getValue() == "Y"){
+      datasheet.getRange(datasheet.getLastRow(),21).setValue(1);
+    }
+    else{
+      datasheet.getRange(datasheet.getLastRow(),21).setValue(0);
+    }
+    datasheet.getRange('V2').copyTo(datasheet.getRange(datasheet.getLastRow(), 22 ));
+    datasheet.getRange('X2').copyTo(datasheet.getRange(datasheet.getLastRow(), 24 ));
+  }
+  if (!bSw && availUserList.includes(sw)) {
+    let defaultValue = [sw, 0, 0, 0, 0, 0, 0, 0, 0];
+    datasheet.getRange(datasheet.getLastRow() + 1, 1, 1, 9).setValues([defaultValue]);
+    datasheet.getRange(datasheet.getLastRow(), 8).setValue(1);
+    datasheet.getRange('J2:Q2').copyTo(datasheet.getRange(datasheet.getLastRow(), 10, 1,8 ));
+    datasheet.getRange(datasheet.getLastRow(),18).setValue(0);
+    datasheet.getRange(datasheet.getLastRow(),19).setValue(dPlayDate);
+    swChangePoint = '-';
+    /*if(blockUserList.includes(sw)){
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('Y');
+    }
+    else{
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+    }*/
+    datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+    if( scoresheet.getRange("Q5").getValue() == "Y"){
+      datasheet.getRange(datasheet.getLastRow(),21).setValue(1);
+    }
+    else{
+      datasheet.getRange(datasheet.getLastRow(),21).setValue(0);
+    }
+    datasheet.getRange('V2').copyTo(datasheet.getRange(datasheet.getLastRow(), 22 ));
+    datasheet.getRange('X2').copyTo(datasheet.getRange(datasheet.getLastRow(), 24 ));
+  }
+  if (!bDl && availUserList.includes(dl)) {
+    let defaultValue = [dl, 0, 0, 0, 0, 0, 0, 0, 0];
+    datasheet.getRange(datasheet.getLastRow() + 1, 1, 1, 9).setValues([defaultValue]);
+    datasheet.getRange(datasheet.getLastRow(), 3).setValue(1);
+    datasheet.getRange('J2:Q2').copyTo(datasheet.getRange(datasheet.getLastRow(), 10, 1,8 ));
+    datasheet.getRange(datasheet.getLastRow(),18).setValue(0);
+    datasheet.getRange(datasheet.getLastRow(),19).setValue(dPlayDate);
+    dlChangePoint = '-';
+    /*if(blockUserList.includes(dl)){
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('Y');
+    }
+    else{
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+    }*/
+    datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+    datasheet.getRange(datasheet.getLastRow(),21).setValue(0);
+    datasheet.getRange('V2').copyTo(datasheet.getRange(datasheet.getLastRow(), 22 ));
+    datasheet.getRange('X2').copyTo(datasheet.getRange(datasheet.getLastRow(), 24 ));
+  }
+  if (!bAl && availUserList.includes(al)) {
+    let defaultValue = [al, 0, 0, 0, 0, 0, 0, 0, 0];
+    datasheet.getRange(datasheet.getLastRow() + 1, 1, 1, 9).setValues([defaultValue]);
+    datasheet.getRange(datasheet.getLastRow(), 5).setValue(1);
+    datasheet.getRange('J2:Q2').copyTo(datasheet.getRange(datasheet.getLastRow(), 10, 1,8 ));
+    datasheet.getRange(datasheet.getLastRow(),18).setValue(0);
+    datasheet.getRange(datasheet.getLastRow(),19).setValue(dPlayDate);
+    alChangePoint = '-';
+    /*if(blockUserList.includes(al)){
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('Y');
+    }
+    else{
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+    }*/
+    datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+    datasheet.getRange(datasheet.getLastRow(),21).setValue(0);
+    datasheet.getRange('V2').copyTo(datasheet.getRange(datasheet.getLastRow(), 22 ));
+    datasheet.getRange('X2').copyTo(datasheet.getRange(datasheet.getLastRow(), 24 ));
+  }
+  if (!bNl && availUserList.includes(nl)) {
+    let defaultValue = [nl, 0, 0, 0, 0, 0, 0, 0, 0];
+    datasheet.getRange(datasheet.getLastRow() + 1, 1, 1, 9).setValues([defaultValue]);
+    datasheet.getRange(datasheet.getLastRow(), 7).setValue(1);
+    datasheet.getRange('J2:Q2').copyTo(datasheet.getRange(datasheet.getLastRow(), 10, 1,8 ));
+    datasheet.getRange(datasheet.getLastRow(),18).setValue(0);
+    datasheet.getRange(datasheet.getLastRow(),19).setValue(dPlayDate);
+    nlChangePoint = '-';
+    /*if(blockUserList.includes(nl)){
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('Y');
+    }
+    else{
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+    }*/
+    datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+    datasheet.getRange(datasheet.getLastRow(),21).setValue(0);
+    datasheet.getRange('V2').copyTo(datasheet.getRange(datasheet.getLastRow(), 22 ));
+    datasheet.getRange('X2').copyTo(datasheet.getRange(datasheet.getLastRow(), 24 ));
+  }
+  if (!bSl && availUserList.includes(sl)) {
+    let defaultValue = [sl, 0, 0, 0, 0, 0, 0, 0, 0];
+    datasheet.getRange(datasheet.getLastRow() + 1, 1, 1, 9).setValues([defaultValue]);
+    datasheet.getRange(datasheet.getLastRow(), 9).setValue(1);
+    datasheet.getRange('J2:Q2').copyTo(datasheet.getRange(datasheet.getLastRow(), 10, 1,8 ));
+    datasheet.getRange(datasheet.getLastRow(),18).setValue(0);
+    datasheet.getRange(datasheet.getLastRow(),19).setValue(dPlayDate);
+    slChangePoint = '-';
+    /*if(blockUserList.includes(sl)){
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('Y');
+    }
+    else{
+      datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+    }*/
+    datasheet.getRange(datasheet.getLastRow(),20).setValue('N');
+    datasheet.getRange(datasheet.getLastRow(),21).setValue(0);
+    datasheet.getRange('V2').copyTo(datasheet.getRange(datasheet.getLastRow(), 22 ));
+    datasheet.getRange('X2').copyTo(datasheet.getRange(datasheet.getLastRow(), 24 ));
+
+  }
+
+  sort_stat();
+
+  //전적이력 삽입
+  let winScore = formSS.getRange("E5").getValue();
+  let loseScore = formSS.getRange("E8").getValue();
+
+  let winTeamList = dw + ' (' + dwChangePoint + ')' + '<br>' 
+                  + aw + ' (' + awChangePoint + ')' + '<br>' 
+                  + nw + ' (' + nwChangePoint + ')' + '<br>' 
+                  + sw + ' (' + swChangePoint + ')';
+
+  let loseTeamList = dl + ' (' + dlChangePoint + ')' + '<br>' 
+                  + al + ' (' + alChangePoint + ')' + '<br>' 
+                  + nl + ' (' + nlChangePoint + ')' + '<br>' 
+                  + sl + ' (' + slChangePoint + ')';
+  
+  let allCharInfo = null; // B4 셀의 값을 저장할 변수 초기화
+  allCharInfo = discordsheet.getRange("B4").getValue();
+
+  const histData = new HistClass(winTeamList , loseTeamList, winScore, loseScore, dPlayDate, Utilities.formatDate(new Date(),'GMT+9', 'yyyy-MM-dd HH:mm'), getCurrentSeason(), gameId, allCharInfo );
+  addHist(histData);
+  sortByWinRate();
+
+  let winnerTeam = [dw, aw, nw, sw];
+  let loserTeam = [dl, al, nl, sl];
+
+  apply_duo_stats(winnerTeam,loserTeam)
+}
+/*******/
+function apply_duo_stats(winnerTeam, loserTeam ) {
+  // 함수 내부에서 승리팀과 패배팀 배열을 직접 선언합니다.
+  // 이 부분의 값을 변경하여 테스트할 수 있습니다.
+  //const winnerTeam = ["테스트1", "테스트2", "테스트3", "테스트4"];
+  //const loserTeam = ["테스트5", "테스트6", "테스트7", "테스트8"];
+  
+  const statsSheetName = "듀오전적";
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  let statsSheet = ss.getSheetByName(statsSheetName);
+  // 승리팀 2인 조합의 승리를 기록합니다.
+  updateTeamStats(winnerTeam, 1, statsSheetName); // 승리 횟수 1 증가
+  
+  // 패배팀 2인 조합의 패배를 기록합니다.
+  updateTeamStats(loserTeam, 0, statsSheetName); // 패배 횟수 1 증가
+
+  sortStatsSheet();
+
+}
+
+function updateTeamStats(teamMembers, result, statsSheetName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const statsSheet = ss.getSheetByName(statsSheetName);
+
+  if (!statsSheet) {
+    throw new Error('통계 시트를 찾을 수 없습니다: ' + statsSheetName);
+  }
+
+  const currentSeason = getCurrentSeason();
+  const lastRow = statsSheet.getLastRow();
+  const seasonColumnIndex = 1; // A열
+  const duoColumnIndex = 2; // B열
+  const winsColumnIndex = 3; // C열
+  const lossesColumnIndex = 4; // D열
+
+  // 시트에서 현재 시즌 데이터만 효율적으로 검색하기 위해 맵을 사용합니다.
+  const duoStatsMap = new Map();
+  if (lastRow > 1) {
+    const dataRange = statsSheet.getRange(2, 1, lastRow - 1, statsSheet.getLastColumn());
+    const values = dataRange.getValues();
+    for (const row of values) {
+      if (row[seasonColumnIndex - 1] === currentSeason) {
+        duoStatsMap.set(row[duoColumnIndex - 1], {
+          wins: row[winsColumnIndex - 1],
+          losses: row[lossesColumnIndex - 1],
+          rowIndex: values.indexOf(row) + 2
+        });
+      }
+    }
+  }
+
+  const updates = [];
+  const newRows = [];
+
+  // 팀원들로 가능한 모든 2인 조합을 만듭니다.
+  for (let i = 0; i < teamMembers.length; i++) {
+    for (let j = i + 1; j < teamMembers.length; j++) {
+      const player1 = teamMembers[i];
+      const player2 = teamMembers[j];
+      const combination = [player1, player2].sort().join('&');
+      
+      const existingStat = duoStatsMap.get(combination);
+
+      if (existingStat) {
+        // 기존 조합에 대한 승/패 횟수를 업데이트합니다.
+        const updatedWins = existingStat.wins + (result === 1 ? 1 : 0);
+        const updatedLosses = existingStat.losses + (result === 0 ? 1 : 0);
+        updates.push({
+          rowIndex: existingStat.rowIndex,
+          values: [updatedWins, updatedLosses]
+        });
+      } else {
+        // 새로운 조합이면 새 행을 추가할 준비를 합니다.
+        const winValue = result === 1 ? 1 : 0;
+        const lossValue = result === 0 ? 1 : 0;
+        newRows.push([currentSeason, combination, winValue, lossValue, '']);
+      }
+    }
+  }
+
+  // 1. 기존 행 업데이트
+  // 이 부분은 기존 방식과 큰 차이가 없지만, 업데이트할 행을 정확히 찾습니다.
+  for (const update of updates) {
+    statsSheet.getRange(update.rowIndex, winsColumnIndex, 1, 2).setValues([update.values]);
+  }
+
+  // 2. 새 행 추가 및 승률 수식 적용
+  if (newRows.length > 0) {
+    statsSheet.getRange(statsSheet.getLastRow() + 1, 1, newRows.length, newRows[0].length).setValues(newRows);
+    
+    // 새로 추가된 행들에 대한 승률 수식 일괄 적용
+    const newStartRow = statsSheet.getLastRow() - newRows.length + 1;
+    for (let i = 0; i < newRows.length; i++) {
+      const rowIndex = newStartRow + i;
+      const winRateFormula = `=IFERROR(TEXT(C${rowIndex}/(C${rowIndex}+D${rowIndex}), "0.0%"), "N/A")`;
+      statsSheet.getRange(rowIndex, 5).setFormula(winRateFormula);
+    }
+  }
+}
+
+// 4명의 플레이어로부터 모든 듀오 조합을 생성하는 헬퍼 함수 (기존 함수 유지)
+function generateDuos(players) {
+  const duos = [];
+  if (players.length !== 4) return duos;
+
+  for (let i = 0; i < players.length - 1; i++) {
+    for (let j = i + 1; j < players.length; j++) {
+      const p1 = players[i];
+      const p2 = players[j];
+      const sortedDuo = [p1, p2].sort();
+      duos.push(sortedDuo);
+    }
+  }
+  return duos;
+}
+
+
+function sortStatsSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('듀오전적');  
+  
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert('\'듀오전적\' 시트를 찾을 수 없습니다.');
+    return;
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    // 헤더만 있거나 데이터가 없는 경우 정렬할 필요가 없음
+    return;
+  }
+
+  // 헤더를 제외한 모든 데이터를 가져옵니다.
+  const dataRange = sheet.getRange(2, 1, lastRow - 1, 4);
+  const data = dataRange.getValues();
+
+  // 정렬 로직
+  data.sort((a, b) => {
+    const seasonA = a[0]; // 시즌 정보 (A열)
+    const seasonB = b[0]; // 시즌 정보 (A열)
+    const winsA = a[2]; // 승리수 (C열)
+    const winsB = b[2]; // 승리수 (C열)
+    const lossesA = a[3]; // 패배수 (D열)
+    const lossesB = b[3]; // 패배수 (D열)
+
+    // '베타시즌'은 가장 마지막에 오도록 처리합니다.
+    if (seasonA === '베타시즌' && seasonB !== '베타시즌') {
+      return 1;
+    }
+    if (seasonA !== '베타시즌' && seasonB === '베타시즌') {
+      return -1;
+    }
+
+    // 시즌을 숫자로 변환하여 비교합니다.
+    const seasonNumA = parseInt(seasonA.replace('시즌', ''), 10);
+    const seasonNumB = parseInt(seasonB.replace('시즌', ''), 10);
+
+    // 1. 시즌(숫자) 내림차순 정렬
+    if (seasonNumA !== seasonNumB) {
+      return seasonNumB - seasonNumA;
+    }
+
+    // 2. 승리수 내림차순 정렬
+    if (winsA !== winsB) {
+      return winsB - winsA;
+    }
+
+    // 3. 패배수 오름차순 정렬
+    return lossesA - lossesB;
+  });
+
+  // 정렬된 데이터를 시트에 다시 씁니다.
+  dataRange.setValues(data);
+}
+
+/*******/
+
+
+function addHist(histData){
+
+  let ss_h= SpreadsheetApp.getActiveSpreadsheet();
+  let formSS_h = ss_h.getSheetByName("전적이력");
+  let lastRow = formSS_h.getLastRow();
+
+  formSS_h.insertRowAfter(1);
+
+  //순서
+  formSS_h.getRange(2,1).setValue(histData.gameId);
+
+  //경기날짜
+  formSS_h.getRange(2,2).setValue(histData.dPlayDate);
+
+  //승리팀(스코어)
+  formSS_h.getRange(2,3).setValue(histData.winTeamList);
+
+  //승리팀 포인트
+  formSS_h.getRange(2,4).setValue(histData.winnerPoint);
+
+  //패배팀(스코어))
+  formSS_h.getRange(2,5).setValue(histData.loseTeamList);
+
+  //패배팀 포인트
+  formSS_h.getRange(2,6).setValue(histData.loserPoint);
+
+  //기록 입력일
+  formSS_h.getRange(2,7).setValue(histData.dInputDate);
+
+  //대상 시즌
+  formSS_h.getRange(2,8).setValue(histData.currentSeason);   
+
+  //all 캐릭 여부
+  formSS_h.getRange(2,9).setValue(histData.allCharInfo);   
+  
+  const formula1 = `=ARRAYFORMULA(REGEXEXTRACT(SPLIT(C2, "<br>"), "([가-힣A-Za-z]+)"))`;
+  const formula2 = `=ARRAYFORMULA(REGEXEXTRACT(SPLIT(E2, "<br>"), "([가-힣A-Za-z]+)"))`;
+
+  formSS_h.getRange(2,10).setFormula(formula1);
+  formSS_h.getRange(2,14).setFormula(formula2);
+}
+
+/*
+function cancelGameProcess() {
+  
+  // === 1. 스프레드시트 및 시트 접근 ===
+ 
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("디스코드 연동");
+  
+  // 2. A10 (승리팀)과 A12 (패배팀) 셀의 값을 가져옵니다.
+  const winTeamString = sheet.getRange("A10").getValue().toString().trim(); // 예: "가/나/다/라"
+  const loseTeamString = sheet.getRange("A12").getValue().toString().trim(); // 예: "A/B/C/D"
+
+  // 값이 비어있을 경우를 대비한 체크
+  if (!winTeamString || !loseTeamString) {
+    Logger.log("오류: A10 또는 A12 셀에 데이터가 없습니다.");
+    return;
+  }
+  
+  // 3. 문자열을 '/' 구분자로 분리하여 배열로 만듭니다.
+  // [dru, ass, nec, smt] 순서로 파싱됩니다.
+  const winTeamNames = winTeamString.split('/');
+  const loseTeamNames = loseTeamString.split('/');
+  
+  // 4. 파싱된 데이터를 변수에 할당합니다.
+  
+  // --- 승리팀 (Win Team) ---
+  const druWinName = winTeamNames[0] ? winTeamNames[0].trim() : 'N/A';
+  const assWinName = winTeamNames[1] ? winTeamNames[1].trim() : 'N/A';
+  const necWinName = winTeamNames[2] ? winTeamNames[2].trim() : 'N/A';
+  const smtWinName = winTeamNames[3] ? winTeamNames[3].trim() : 'N/A';
+  
+  // --- 패배팀 (Lose Team) ---
+  const druLoseName = loseTeamNames[0] ? loseTeamNames[0].trim() : 'N/A';
+  const assLoseName = loseTeamNames[1] ? loseTeamNames[1].trim() : 'N/A';
+  const necLoseName = loseTeamNames[2] ? loseTeamNames[2].trim() : 'N/A';
+  const smtLoseName = loseTeamNames[3] ? loseTeamNames[3].trim() : 'N/A';
+}
+*/
+
+/*
+function onEdit(e){
+  //let sheet = SpreadsheetApp.getActiveSpreadsheet();s
+  //let ss = sheet.getSheetByName("기록입력");
+  //let mobileExec = ss.getRange("D11:D12").getValue();
+  if( e.value === 'TRUE' && e.range.getA1Notation() === 'D11'){
+    e.range.uncheck();
+    //apply();
+  }
+}
+*/
+
+function onEdit2(e){
+
+  let ss_t = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet_t = ss_t.getSheetByName("시즌목록");
+  var season_open_yn = sheet_t.getRange("I2").getValue(); // 특정 셀 값 가져오기
+
+  Logger.log(season_open_yn);
+  if(season_open_yn != "오픈")
+  {
+    return;
+  }
+  
+  const sheetName = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetActive = SpreadsheetApp.getActiveSheet();
+  const cellActive = sheetActive.getActiveCell();
+  const cellActiveColumn = cellActive.getColumn();
+  const cellActiveRow = cellActive.getRow();
+  let ss = sheetName.getSheetByName("디스코드 연동");
+   
+  if( sheetActive.getName() == "디스코드 연동" && cellActiveRow == 2 && cellActiveColumn == 3 && ss.getRange(2, 2).getValue() != ""){
+    apply_discord();
+    ss.getRange(2, 1, 1, 3).setValue(["", "", ""]);
+    ss.getRange("A7").setValue("Y");
+  }
+}
+
+function onEdit3(e){
+  let ss_t = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet_t = ss_t.getSheetByName("시즌목록");
+  var season_open_yn = sheet_t.getRange("I2").getValue(); // 특정 셀 값 가져오기
+
+  Logger.log(season_open_yn);
+  if(season_open_yn != "오픈")
+  {
+    return;
+  }
+
+  const sheetName = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetActive = SpreadsheetApp.getActiveSheet();
+  const cellActive = sheetActive.getActiveCell();
+  const cellActiveColumn = cellActive.getColumn();
+  const cellActiveRow = cellActive.getRow();
+  let ss = sheetName.getSheetByName("디스코드 연동");
+
+if( sheetActive.getName() == "디스코드 연동" && cellActiveRow == 4 && cellActiveColumn == 1){
+    sort_stat();
+    sortByWinRate();
+    cancelDuoRecordsTransaction();
+    sortStatsSheet();
+    ss.getRange("A7").setValue("Y");
+  }
+}
+
+function onEdit4(e) {
+/*
+  let ss_t = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet_t = ss_t.getSheetByName("시즌목록");
+  var season_open_yn = sheet_t.getRange("I2").getValue(); // 특정 셀 값 가져오기
+
+  Logger.log(season_open_yn);
+  if (season_open_yn != "오픈") {
+    return;
+  }
+
+  let ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName("전적확인");
+
+  if (sheet.getLastRow() < 4) {
+    return;
+  }
+
+  var lastRow = sheet.getLastRow(); // 🔹 S열 전체 범위 (2행~마지막 행)
+  var rangeS = sheet.getRange(2, 19, lastRow - 1, 1); // S열 (19번째 열) 전체 가져오기
+  var dates = rangeS.getValues(); // S열 데이터 가져오기
+
+  Logger.log("🔹 기존 날짜 데이터: " + JSON.stringify(dates));
+
+  // ✅ 1. 최신 날짜 찾기 (S열 전체에서 가장 최근 날짜 찾기)
+  var latestDate = null;
+
+  for (var i = 0; i < dates.length; i++) {
+    var dateValue = dates[i][0]; // S열 날짜 값
+    if (dateValue instanceof Date) { // 날짜 값인지 확인
+      if (!latestDate || dateValue > latestDate) {
+        latestDate = dateValue;
+      }
+    }
+  }
+
+  if (!latestDate) {
+    Logger.log("🚨 유효한 최신 날짜 없음.");
+    return;
+  }
+
+  Logger.log("📅 최신 날짜: " + latestDate);
+
+  // ✅ 2. 최신 날짜로부터 3일 경과 여부 확인
+  var today = new Date(); // 현재 날짜
+  today.setHours(0, 0, 0, 0); // 시간 정보 제거 (날짜 비교 용)
+
+  var timeDiff = today.getTime() - latestDate.getTime(); // 시간 차이 계산
+  var dayDiff = timeDiff / (1000 * 60 * 60 * 24); // 일수 변환
+
+  Logger.log("⏳ 최신 날짜 기준 경과일수: " + dayDiff);
+
+  if (dayDiff > 3) { // 최신 날짜 기준 3일이 지나면
+    var rangeR = sheet.getRange(2, 18, lastRow - 1, 1); // R열 (점수)
+    var scores = rangeR.getValues(); // R열 데이터 가져오기
+
+    Logger.log("🔹 기존 점수 데이터: " + JSON.stringify(scores));
+
+    for (var i = 0; i < scores.length; i++) {
+      var score = scores[i][0]; // 현재 행의 점수
+      
+      // ✅ 점수 유효성 검사: 숫자가 아니면 스킵
+      if (typeof score === "number" && !isNaN(score)) {
+        scores[i][0] = Math.max(0, score - 30); // 30점 차감 (최소 0 유지)
+      } else {
+        Logger.log(`⚠️ 점수 차감 스킵 (유효하지 않은 값): 행 ${i + 2}, 값: ${score}`);
+      }
+    }
+    
+    Logger.log("🔻 점수 차감 완료.");
+    rangeR.setValues(scores); // 변경된 점수 적용
+    sort_stat(); // 정렬 함수 실행
+  } else {
+    Logger.log("✅ 아직 3일이 지나지 않음. 점수 차감 없음.");
+  }
+
+  sortByWinRate();
+*/
+}
+
+
+function onEdit_userRegist(e){
+  const sheetName = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetActive = SpreadsheetApp.getActiveSheet();
+  const cellActive = sheetActive.getActiveCell();
+  const cellActiveColumn = cellActive.getColumn();
+
+  if( sheetActive.getName() == "사용자목록" && cellActiveColumn == 1){
+    var cellActiveRow = cellActive.getRow();  
+
+    // H2:O2의 수식을 현재 편집된 행(row)의 H~O 열에 복사
+    var sourceRange = sheetActive.getRange("H2:AV2");  // 수식을 복사할 원본 범위
+    var targetRange = sheetActive.getRange("H" + cellActiveRow + ":AV" + cellActiveRow); // 복사할 대상 범위
+    
+    sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
+  }
+
+}
+/******************************************** */
+/*듀요전적 이력취소 */
+/******************************************* */
+/**
+ * 배열에서 가능한 모든 조합(Combination)을 생성합니다. (itertools.combinations 대체)
+ * @param {Array<string>} array - 조합을 생성할 배열.
+ * @param {number} size - 조합을 만들 요소의 개수 (듀오이므로 2).
+ * @returns {Array<Array<string>>} 조합 배열.
+ */
+function combinations(array, size) {
+  const result = [];
+  function generate(start, current) {
+    if (current.length === size) {
+      result.push([...current]);
+      return;
+    }
+    for (let i = start; i < array.length; i++) {
+      current.push(array[i]);
+      generate(i + 1, current);
+      current.pop();
+    }
+  }
+  generate(0, []);
+  return result;
+}
+
+/**
+ * 두 이름의 순서를 정렬하여 듀오 조합명을 생성합니다.
+ * @param {string} name1 
+ * @param {string} name2 
+ * @returns {string} 예: "Alice&Bob"
+ */
+function createDuoName(name1, name2) {
+  if (!name1 || !name2) return null; 
+  const names = [name1, name2].sort();
+  return `${names[0]}&${names[1]}`;
+}
+
+function cancelDuoRecordsTransaction() {
+  
+  // ----------------------------------------------------
+  // 1. 초기 설정 및 시즌 정보 가져오기
+  // ----------------------------------------------------
+  
+  const currentSeason = getCurrentSeason(); // 시즌 정보 가져오기
+    
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  
+  if (!spreadsheet) {
+    Logger.log(`오류: "${spreadsheetName}" 스프레드시트를 찾을 수 없습니다.`);
+    SpreadsheetApp.getUi().alert(`오류: 스프레드시트를 찾을 수 없습니다.`);
+    return;
+  }
+  
+  const duosheet = spreadsheet.getSheetByName("듀오전적");
+  const activeSheet = spreadsheet.getSheetByName("디스코드 연동");
+
+  if (!duosheet || !activeSheet) {
+    Logger.log("오류: 필요한 시트를 찾을 수 없습니다.");
+    SpreadsheetApp.getUi().alert("오류: 시트 이름을 확인해 주세요.");
+    return;
+  }
+
+  // ----------------------------------------------------
+  // 2. 캐릭터명 파싱 로직 (A10, A12 셀)
+  // ----------------------------------------------------
+
+  const winTeamString = activeSheet.getRange("A10").getValue().toString().trim();
+  const loseTeamString = activeSheet.getRange("A12").getValue().toString().trim();
+
+  if (!winTeamString || !loseTeamString) {
+    Logger.log("오류: A10 또는 A12 셀에 데이터가 없습니다. 파싱 취소.");
+    SpreadsheetApp.getUi().alert("오류: A10/A12 셀을 확인해주세요.");
+    return;
+  }
+
+  const winTeamNames = winTeamString.split('/');
+  const loseTeamNames = loseTeamString.split('/');
+  
+  const druWinName = winTeamNames[0] ? winTeamNames[0].trim() : '';
+  const assWinName = winTeamNames[1] ? winTeamNames[1].trim() : '';
+  const necWinName = winTeamNames[2] ? winTeamNames[2].trim() : '';
+  const smtWinName = winTeamNames[3] ? winTeamNames[3].trim() : '';
+  
+  const druLoseName = loseTeamNames[0] ? loseTeamNames[0].trim() : '';
+  const assLoseName = loseTeamNames[1] ? loseTeamNames[1].trim() : '';
+  const necLoseName = loseTeamNames[2] ? loseTeamNames[2].trim() : '';
+  const smtLoseName = loseTeamNames[3] ? loseTeamNames[3].trim() : '';
+  
+  // ----------------------------------------------------
+  // 3. 듀오 조합 생성 및 전적 취소 로직
+  // ----------------------------------------------------
+  
+  const winTeamMembers = [druWinName, assWinName, necWinName, smtWinName].filter(name => name);
+  const loseTeamMembers = [druLoseName, assLoseName, necLoseName, smtLoseName].filter(name => name);
+  
+  const winDuos = combinations(winTeamMembers, 2).map(pair => createDuoName(pair[0], pair[1]));
+  const loseDuos = combinations(loseTeamMembers, 2).map(pair => createDuoName(pair[0], pair[1]));
+  
+  // 듀오 전적 취소 실행 (시즌 정보 전달)
+  // 3열: 승리(C), 4열: 패배(D)
+  processDuoCancellation(duosheet, winDuos, 3, "승리", currentSeason); 
+  processDuoCancellation(duosheet, loseDuos, 4, "패배", currentSeason); 
+
+  activeSheet.getRange("A10").setValue("");
+  activeSheet.getRange("A12").setValue("");
+
+  Logger.log('🎉 듀오 전적 취소 처리가 최종 완료되었습니다.');
+}
+
+// ---------------------------------------------------------------------
+// C. 전적 취소 헬퍼 함수 (시즌 체크 로직 추가)
+// ---------------------------------------------------------------------
+
+/**
+ * 듀오 조합 리스트를 순회하며 전적을 업데이트합니다.
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - 듀오 전적 시트.
+ * @param {Array<string>} duoList - 업데이트할 듀오 조합 목록.
+ * @param {number} columnToUpdate - 업데이트할 열 번호 (3: 승리(C), 4: 패배(D)).
+ * @param {string} status - 로그 메시지에 사용할 상태 ("승리" 또는 "패배").
+ * @param {string} season - 현재 시즌 정보 (A열과 비교할 값).
+ */
+function processDuoCancellation(sheet, duoList, columnToUpdate, status, season) {
+  let updatedCount = 0;
+  
+  // B열 전체에서 검색 (듀오 조합명이 있는 열)
+  const searchRange = sheet.getRange('B:B'); 
+  
+  for (const duo of duoList) {
+    if (!duo) continue; 
+    
+    // 듀오 조합명으로 B열에서 해당 행 찾기
+    const foundCell = searchRange.createTextFinder(duo)
+                                 .matchEntireCell(true)
+                                 .findNext();
+    
+    if (foundCell) {
+      const duoRow = foundCell.getRow();
+      
+      // *** 시즌 체크 로직 추가 ***
+      // A열 (1열)의 값을 가져와 현재 시즌과 비교합니다.
+      const seasonCell = sheet.getRange(duoRow, 1); // 1열: A열
+      const rowSeason = seasonCell.getValue().toString().trim();
+      
+      if (rowSeason !== season) {
+        Logger.log(`정보: "${duo}" 조합을 찾았으나, 시즌(${rowSeason})이 현재 시즌(${season})과 일치하지 않아 건너뜁니다.`);
+        continue; // 시즌 불일치 시 다음 듀오로 넘어감
+      }
+      // *************************
+
+      try {
+        // 현재 승/패 횟수 가져오기
+        const targetRange = sheet.getRange(duoRow, columnToUpdate);
+        const currentValue = parseInt(targetRange.getValue());
+        
+        if (!isNaN(currentValue) && currentValue > 0) {
+          // 값 -1로 업데이트
+          targetRange.setValue(currentValue - 1);
+          updatedCount++;
+        } else {
+          Logger.log(`정보: 듀오 "${duo}" (시즌: ${season})의 현재 ${status} 횟수가 0이하여서 취소하지 않았습니다.`);
+        }
+      } catch (e) {
+        Logger.log(`경고: 듀오 전적 취소 중 오류 발생 - ${duuo}, ${e}`);
+      }
+    } else {
+      Logger.log(`경고: 듀오 전적 시트에서 "${duo}" 조합을 찾을 수 없습니다.`);
+    }
+  }
+  
+  Logger.log(`총 ${updatedCount}건의 ${status} 듀오 전적 (시즌: ${season})이 취소 업데이트 되었습니다.`);
+}
+
+
+
+
+/*듀오전적 보정용 */
+function updateDuoStats() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const historySheet = ss.getSheetByName('전적이력');
+  const duoSheet = ss.getSheetByName('듀오전적');
+
+  if (!historySheet) {
+    SpreadsheetApp.getUi().alert('\'전적이력\' 시트를 찾을 수 없습니다.');
+    return;
+  }
+  
+  // 'duotemp' 오류 메시지를 '듀오전적' 시트를 찾지 못했다는 메시지로 수정했습니다.
+  if (!duoSheet) {
+    SpreadsheetApp.getUi().alert('\'듀오전적\' 시트를 찾을 수 없습니다.');
+    return;
+  }
+
+  const historyData = historySheet.getDataRange().getValues();
+  const duoStats = {};
+
+  // 헤더를 제외하고 데이터를 순회합니다. (1행부터 시작)
+  for (let i = 1; i < historyData.length; i++) {
+    const row = historyData[i];
+    // H열(인덱스 7)의 시즌 정보를 가져옵니다.
+    const season = row[7];
+    const winningTeamString = row[2]; // C열
+    const losingTeamString = row[4]; // E열
+
+    // <br>과 괄호 안의 내용을 모두 제거하고 닉네임만 추출하는 함수
+    const extractPlayers = (teamString) => {
+      if (!teamString) return [];
+      const cleanedString = teamString.replace(/\(.*?\)/g, '').replace(/<br>/g, '').trim();
+      return cleanedString.split(/\s+/).filter(Boolean);
+    };
+
+    const winningPlayers = extractPlayers(winningTeamString);
+    const losingPlayers = extractPlayers(losingTeamString);
+
+    // 승리팀 듀오 조합 처리
+    // generateDuos() 함수는 외부 또는 전역으로 정의되어 있다고 가정합니다.
+    const winningDuos = generateDuos(winningPlayers);
+    winningDuos.forEach(duo => {
+      const duoKey = `${duo[0]}&${duo[1]}`;
+      if (!duoStats[duoKey]) {
+        duoStats[duoKey] = {};
+      }
+      if (!duoStats[duoKey][season]) {
+        duoStats[duoKey][season] = { wins: 0, losses: 0 };
+      }
+      duoStats[duoKey][season].wins++;
+    });
+
+    // 패배팀 듀오 조합 처리
+    const losingDuos = generateDuos(losingPlayers);
+    losingDuos.forEach(duo => {
+      const duoKey = `${duo[0]}&${duo[1]}`;
+      if (!duoStats[duoKey]) {
+        duoStats[duoKey] = {};
+      }
+      if (!duoStats[duoKey][season]) {
+        duoStats[duoKey][season] = { wins: 0, losses: 0 };
+      }
+      duoStats[duoKey][season].losses++;
+    });
+  }
+
+  // 결과를 배열에 담기
+  let output = [];
+  for (const duoKey in duoStats) {
+    for (const season in duoStats[duoKey]) {
+      const stats = duoStats[duoKey][season];
+      // 승률 수식 삽입을 위해 빈 문자열을 추가하여 5열을 만듭니다.
+      output.push([season, duoKey, stats.wins, stats.losses, '']); 
+    }
+  }
+
+  // 시즌(숫자) -> 승리 순으로 정렬
+  output.sort((a, b) => {
+    // 시즌 값을 숫자로 변환 (예: '시즌13' -> 13)
+    const seasonA = parseInt(a[0].replace('시즌', ''), 10);
+    const seasonB = parseInt(b[0].replace('시즌', ''), 10);
+
+    // 1. 시즌이 높은 순으로 정렬 (내림차순)
+    if (seasonB !== seasonA) {
+      return seasonB - seasonA;
+    }
+    // 2. 같은 시즌이면 승리 횟수가 높은 순으로 정렬 (내림차순)
+    return b[2] - a[2];
+  });
+  
+  // 헤더를 포함한 최종 데이터 생성
+  // 승률 헤더 '승률'을 추가합니다.
+  const finalOutput = [['시즌', '듀오조합', '승', '패', '승률'], ...output];
+
+  // 기존 데이터 삭제 후 새 데이터 쓰기
+  duoSheet.clear();
+  if (finalOutput.length > 1) {
+    // 1. 집계된 데이터를 시트에 씁니다. (5열 포함)
+    const numCols = finalOutput[0].length; // 5
+    duoSheet.getRange(1, 1, finalOutput.length, numCols).setValues(finalOutput);
+    
+    // 2. 승률 수식을 삽입합니다.
+    const numRows = finalOutput.length;
+    // 데이터 행은 2행부터 시작 (헤더를 제외)
+    for (let i = 2; i <= numRows; i++) {
+      // 5번째 열(E열)에 승률 수식 삽입
+      const rowIndex = i;
+      // 승: C열 (3번째 열), 패: D열 (4번째 열)
+      const winRateFormula = `=IFERROR(TEXT(C${rowIndex}/(C${rowIndex}+D${rowIndex}), "0.0%"), "N/A")`;
+      duoSheet.getRange(rowIndex, 5).setFormula(winRateFormula);
+    }
+    
+    // 3. 헤더 스타일 설정
+    duoSheet.getRange(1, 1, 1, numCols).setBackground('#f3f3f3').setFontWeight('bold');
+  } else {
+    // 데이터가 없는 경우 헤더만 작성 (5열 포함)
+    duoSheet.getRange(1, 1, 1, 5).setValues([['시즌', '듀오조합', '승', '패', '승률']]).setBackground('#f3f3f3').setFontWeight('bold');
+  }
+    sort_stat();
+    sortByWinRate();
+    sortStatsSheet();  
+}
+
+// 4명의 플레이어로부터 모든 듀오 조합을 생성하는 헬퍼 함수
+function generateDuos(players) {
+  const duos = [];
+  if (players.length !== 4) return duos;
+
+  for (let i = 0; i < players.length - 1; i++) {
+    for (let j = i + 1; j < players.length; j++) {
+      const p1 = players[i];
+      const p2 = players[j];
+      const sortedDuo = [p1, p2].sort();
+      duos.push(sortedDuo);
+    }
+  }
+  return duos;
+}
+
+
+/**
+ * 현재 활성화된 스프레드시트의 B열("듀오조합") 데이터를 정렬하여 일관성을 확보합니다.
+ * 예: "에겐남&원" -> "원&에겐남" (또는 그 반대)
+ */
+function sortDuoCombinations() {
+  // 현재 활성화된 스프레드시트를 가져옵니다.
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = spreadsheet.getSheetByName('듀오전적');
+  
+  // B열의 데이터가 시작되는 행 (일반적으로 헤더 다음인 2행)과 마지막 행을 계산합니다.
+  // getRange(시작 행, 시작 열, 행 개수, 열 개수)
+  const lastRow = sheet.getLastRow();
+  
+  // 데이터가 2행부터 시작해야 하므로, 마지막 행이 1행(헤더만 있음)보다 작으면 작업을 중단합니다.
+  if (lastRow < 2) {
+    Logger.log("헤더를 제외하고 처리할 데이터가 없습니다 (2행 이상 필요).");
+    SpreadsheetApp.getUi().alert("처리할 데이터가 2행 이상 없습니다.");
+    return;
+  }
+
+  // B열의 2행부터 마지막 행까지의 범위를 가져옵니다. (B2:B[lastRow])
+  // numRows는 lastRow - 1 입니다. (예: 10행이 마지막이면 2~10행이므로 9개)
+  const numRows = lastRow - 1;
+  const range = sheet.getRange(2, 2, numRows, 1);
+  const values = range.getValues(); // 2차원 배열 형태로 데이터를 가져옵니다.
+  
+  // 정렬된 결과를 저장할 새 배열을 준비합니다.
+  let sortedValues = [];
+
+  // 각 셀의 값을 순회하며 정렬 작업을 수행합니다.
+  for (let i = 0; i < values.length; i++) {
+    const duoString = values[i][0]; // 현재 셀의 값 (예: "유즈&에겐남")
+    
+    if (typeof duoString === 'string' && duoString.includes('&')) {
+      // 1. '&' 기호를 기준으로 문자열을 나눕니다.
+      let names = duoString.split('&');
+      
+      // 2. 각 이름을 앞뒤 공백 없이 다듬습니다. (선택 사항이지만 안전을 위해)
+      names = names.map(name => name.trim());
+      
+      // 3. 닉네임 목록을 정렬합니다. (가나다순 / 알파벳순)
+      names.sort();
+      
+      // 4. 정렬된 닉네임을 다시 '&' 기호로 연결합니다.
+      const sortedDuoString = names.join('&');
+      
+      // 5. 정렬된 문자열을 새 배열에 저장합니다. (2차원 배열 형태로)
+      sortedValues.push([sortedDuoString]);
+    } else {
+      // '&' 기호가 없거나 문자열이 아닌 경우, 원래 값을 그대로 유지합니다.
+      sortedValues.push([duoString]);
+    }
+  }
+
+  // 정렬된 전체 데이터를 B열에 다시 씁니다.
+  range.setValues(sortedValues);
+  
+  Logger.log("B열 듀오 조합 정렬 완료.");
+  SpreadsheetApp.getUi().alert("B열 듀오 조합 정렬을 완료했습니다!");
+}
