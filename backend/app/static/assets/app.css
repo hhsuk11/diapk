@@ -1632,6 +1632,8 @@ td {
 .compact-table {
   max-height: min(62vh, 42rem);
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .compact-table th,
@@ -1775,8 +1777,12 @@ td {
 }
 
 .duo-search-season-check {
-  min-height: 2.45rem;
+  display: flex;
+  width: fit-content;
+  min-height: auto;
+  align-items: center;
   align-content: center;
+  justify-self: start;
   white-space: nowrap;
 }
 
@@ -1789,6 +1795,16 @@ td {
   color: var(--muted);
   font-size: 0.85rem;
   font-weight: 800;
+}
+
+.duo-search-form .inline-check {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.duo-search-form .inline-check input {
+  width: 1rem;
+  height: 1rem;
 }
 
 .duo-matchup-result {
@@ -2553,9 +2569,11 @@ td {
 }
 
 .admin-season-table {
-  max-height: none;
-  overflow-x: auto;
-  overflow-y: visible;
+  max-height: min(62vh, 42rem) !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-user-table table {
@@ -2952,6 +2970,11 @@ td {
 
 .admin-notice-table {
   margin-top: 1rem;
+  max-height: min(62vh, 42rem) !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-notice-table table {
@@ -3021,6 +3044,14 @@ td {
 .table-wrap {
   overflow-x: auto;
   overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-wrap.compact-table {
+  max-height: min(62vh, 42rem);
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -3490,6 +3521,10 @@ tbody tr:hover {
     margin-left: 0;
   }
 
+  .table-wrap.compact-table,
+  .admin-player-table,
+  .admin-season-table,
+  .admin-notice-table,
   .admin-user-table {
     max-height: calc(100dvh - 18rem) !important;
   }
