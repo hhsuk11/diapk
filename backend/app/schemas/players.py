@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 class PlayerCharacterIn(BaseModel):
     class_name: str = Field(min_length=1, max_length=40)
     character_name: str | None = Field(default=None, max_length=80)
+    class_rank: str | None = Field(default=None, pattern="^[SABCD]$")
 
 
 class PlayerCreate(BaseModel):
@@ -21,6 +22,7 @@ class PlayerCreate(BaseModel):
 
 class PlayerUpdate(BaseModel):
     display_name: str = Field(min_length=1, max_length=80)
+    characters: list[PlayerCharacterIn] | None = None
 
     @field_validator("display_name", mode="before")
     @classmethod
@@ -40,6 +42,7 @@ class PlayerAdminRead(BaseModel):
     game_refs: int
     stats_refs: int
     character_count: int
+    class_ranks: dict[str, str | None] = Field(default_factory=dict)
 
 
 class PlayerDeleteRead(BaseModel):

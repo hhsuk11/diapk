@@ -15,6 +15,10 @@ from app.services.response_cache import clear_public_response_cache
 
 router = APIRouter(prefix="/admin/players", tags=["admin-players"])
 
+CLASS_RANKS = {"S", "A", "B", "C", "D"}
+CLASS_ORDER = ["드루", "어쎄", "네크", "슴딘"]
+DEFAULT_CLASS_RANK = "C"
+
 
 @router.get("", response_model=list[PlayerAdminRead])
 def list_players(
@@ -59,22 +63,7 @@ def create_player(
     db.flush()
 
     seen_classes: set[str] = set()
-    for character in payload.characters:
-        class_name = character.class_name.strip()
-        if not class_name or class_name in seen_classes:
-            continue
-        seen_classes.add(class_name)
-        character_name = (character.character_name or "").strip() or None
-        db.add(
-            PlayerCharacter(
-                player_id=player.id,
-                class_name=class_name,
-                character_name=character_name,
-                normalized_character_name=normalize_player_name(character_name)
-                if character_name
-                else None,
-            )
-        )
+    upsert_player_characters(db, player, payload.characters, seen_classes)
 
     log_admin_action(
         db,
@@ -117,12 +106,18 @@ def update_player(
     old_display_name = player.display_name
     player.display_name = display_name
     player.normalized_name = normalized_name
+    if payload.characters is not None:
+        upsert_player_characters(db, player, payload.characters, set())
     log_admin_action(
         db,
         principal,
         action="player:update",
         player=player,
-        details={"old_display_name": old_display_name, "display_name": player.display_name},
+        details={
+            "old_display_name": old_display_name,
+            "display_name": player.display_name,
+            "characters_updated": payload.characters is not None,
+        },
     )
     db.commit()
     clear_public_response_cache()
@@ -208,7 +203,55 @@ def read_player(db: Session, player: Player) -> PlayerAdminRead:
         game_refs=game_refs,
         stats_refs=stats_refs,
         character_count=character_count_for_player(db, player.id),
+        class_ranks={
+            class_name: next(
+                (
+                    character.class_rank or DEFAULT_CLASS_RANK
+                    for character in player.characters
+                    if character.class_name == class_name
+                ),
+                DEFAULT_CLASS_RANK,
+            )
+            for class_name in CLASS_ORDER
+        },
     )
+
+
+def upsert_player_characters(
+    db: Session,
+    player: Player,
+    characters: list,
+    seen_classes: set[str],
+) -> None:
+    existing_by_class = {character.class_name: character for character in player.characters}
+    for character in characters:
+        class_name = character.class_name.strip()
+        if not class_name or class_name in seen_classes:
+            continue
+        seen_classes.add(class_name)
+        class_rank = (character.class_rank or DEFAULT_CLASS_RANK).strip().upper()
+        if class_rank not in CLASS_RANKS:
+            class_rank = DEFAULT_CLASS_RANK
+        character_name = (character.character_name or "").strip() or None
+        existing = existing_by_class.get(class_name)
+        if existing is None:
+            db.add(
+                PlayerCharacter(
+                    player_id=player.id,
+                    class_name=class_name,
+                    character_name=character_name,
+                    normalized_character_name=normalize_player_name(character_name)
+                    if character_name
+                    else None,
+                    class_rank=class_rank,
+                )
+            )
+            continue
+        existing.character_name = character_name
+        existing.normalized_character_name = (
+            normalize_player_name(character_name) if character_name else None
+        )
+        existing.class_rank = class_rank
 
 
 def total_games_for_player(db: Session, player_id: int) -> int:

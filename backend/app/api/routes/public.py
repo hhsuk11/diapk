@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.models.enums import GameStatus, Permission, SeasonStatus
 from app.models.game import Game, GamePlayer
-from app.models.player import Player
+from app.models.player import Player, PlayerCharacter
 from app.models.rating import RatingEvent, SeasonPlayerClassStats, SeasonPlayerStats
 from app.models.season import Season
 from app.schemas.public import (
@@ -35,6 +35,7 @@ from app.services.response_cache import public_response_cache
 router = APIRouter(tags=["public"])
 
 CLASS_ORDER = ["드루", "어쎄", "네크", "슴딘"]
+DEFAULT_CLASS_RANK = "C"
 
 
 @router.get("/summary", response_model=SummaryRead)
@@ -124,11 +125,26 @@ def build_team_builder_players(db: Session) -> list[TeamBuilderPlayerRead]:
     players = db.scalars(
         select(Player).where(Player.is_active.is_(True)).order_by(Player.display_name)
     ).all()
+    character_rows = db.scalars(
+        select(PlayerCharacter).where(PlayerCharacter.player_id.in_([player.id for player in players]))
+    ).all()
+    ranks_by_player: dict[int, dict[str, str | None]] = defaultdict(dict)
+    for character in character_rows:
+        ranks_by_player[character.player_id][character.class_name] = (
+            character.class_rank or DEFAULT_CLASS_RANK
+        )
     return [
         TeamBuilderPlayerRead(
             player_id=player.id,
             player_name=player.display_name,
             current_tier=player.current_tier,
+            class_ranks={
+                class_name: ranks_by_player.get(player.id, {}).get(
+                    class_name,
+                    DEFAULT_CLASS_RANK,
+                )
+                for class_name in CLASS_ORDER
+            },
         )
         for player in players
     ]

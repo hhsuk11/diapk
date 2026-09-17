@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "깡CK"
+    app_name: str = "모두의 드어넥슴"
     app_env: str = "local"
     auth_mode: Literal["dev", "google"] = "dev"
     dev_admin_email: str = "dev-admin@example.local"
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
             if email.strip()
         )
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
 @lru_cache

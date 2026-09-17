@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SummaryRead(BaseModel):
@@ -102,6 +102,7 @@ class TeamBuilderPlayerRead(BaseModel):
     player_id: int
     player_name: str
     current_tier: str | None
+    class_ranks: dict[str, str | None] = Field(default_factory=dict)
 
 
 class GamePlayerRead(BaseModel):

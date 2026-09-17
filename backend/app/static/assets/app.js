@@ -1,4 +1,7 @@
 const JOB_ORDER = ["드루", "어쎄", "네크", "슴딘"];
+const CLASS_RANKS = ["S", "A", "B", "C", "D"];
+const DEFAULT_CLASS_RANK = "C";
+const CLASS_RANK_SCORES = { S: 5, A: 4, B: 3, C: 2, D: 1 };
 const USER_A = "삭제";
 const USERS_B = ["123", "456"];
 const AUTOCOMPLETE_LIMIT = 12;
@@ -38,6 +41,7 @@ const state = {
   notices: [],
   adminSeasons: [],
   adminPlayers: [],
+  editingAdminPlayerId: null,
   adminNotices: [],
   adminUsers: [],
   adminScoringRule: null,
@@ -110,6 +114,11 @@ function attachEvents() {
   document.querySelector("#duo-all-seasons").addEventListener("change", loadDuoStats);
   document.querySelector("#search-duo-button").addEventListener("click", searchDuoMatchup);
   document.querySelector("#admin-player-form").addEventListener("submit", createAdminPlayer);
+  document.querySelector("#admin-player-new").addEventListener("click", () => {
+    resetAdminPlayerForm();
+    setAdminPlayerMessage("신규 유저를 등록할 수 있습니다.", false);
+  });
+  setupAdminClassRankSelects();
   document.querySelectorAll("[data-admin-tab]").forEach((button) => {
     button.addEventListener("click", () => showAdminPanel(button.dataset.adminTab));
   });
@@ -143,12 +152,16 @@ function attachEvents() {
     if (event.key === "Enter") loadAdminPlayers();
   });
   document.querySelector("#admin-player-body").addEventListener("click", (event) => {
+    const row = event.target.closest("[data-admin-player-row]");
     const editButton = event.target.closest("[data-admin-edit-player]");
     const deleteButton = event.target.closest("[data-admin-delete-player]");
     const restoreButton = event.target.closest("[data-admin-restore-player]");
-    if (editButton) editAdminPlayer(Number(editButton.dataset.adminEditPlayer));
+    if (editButton) loadAdminPlayerIntoForm(Number(editButton.dataset.adminEditPlayer));
     if (deleteButton) deleteAdminPlayer(Number(deleteButton.dataset.adminDeletePlayer));
     if (restoreButton) restoreAdminPlayer(Number(restoreButton.dataset.adminRestorePlayer));
+    if (row && !deleteButton && !restoreButton) {
+      loadAdminPlayerIntoForm(Number(row.dataset.adminPlayerRow));
+    }
   });
   document.querySelector("#admin-mmr-form").addEventListener("submit", saveAdminScoringRule);
   document.querySelector("#admin-mmr-simulate").addEventListener("click", openMmrSimulator);
@@ -176,6 +189,10 @@ function attachEvents() {
     const resultButton = event.target.closest("#submit-result-button");
     if (startButton) startTeamBuilderGame();
     if (resultButton) submitTeamBuilderResult();
+  });
+  document.querySelector("#current-game-panel").addEventListener("click", (event) => {
+    const restoreButton = event.target.closest("[data-load-current-game]");
+    if (restoreButton) loadCurrentGameIntoTeamBuilder(restoreButton.dataset.loadCurrentGame);
   });
   document.querySelector("#history-list").addEventListener("click", (event) => {
     const cancelButton = event.target.closest("[data-history-cancel]");
@@ -528,6 +545,13 @@ function renderCurrentGameCard(game) {
         <span class="current-game-vs">VS</span>
         ${renderCurrentGameTeam("2팀", teamB)}
       </div>
+      ${
+        canManageGames()
+          ? `<button type="button" class="current-game-load-button" data-load-current-game="${escapeHtml(
+              game.id
+            )}">팀짜기로 불러오기</button>`
+          : ""
+      }
     </article>
   `;
 }
@@ -548,6 +572,70 @@ function renderCurrentGameTeam(label, players) {
       </div>
     </section>
   `;
+}
+
+async function loadCurrentGameIntoTeamBuilder(gameId) {
+  const game = state.currentGames.find((item) => item.id === gameId);
+  if (!game) {
+    showTeamMessage("진행중 경기 정보를 찾지 못했습니다.", true, false);
+    navigateToPage("teams", true);
+    return;
+  }
+
+  const seasonSelect = document.querySelector("#season-select");
+  if (seasonSelect && String(seasonSelect.value) !== String(game.season_id)) {
+    seasonSelect.value = String(game.season_id);
+    await loadSeasonData(String(game.season_id));
+  } else {
+    state.selectedSeasonId = String(game.season_id);
+  }
+
+  const teamA = game.players
+    .filter((player) => player.side === "A")
+    .sort((left, right) => left.slot - right.slot)
+    .map(currentGamePlayerToTeamBuilderPlayer);
+  const teamB = game.players
+    .filter((player) => player.side === "B")
+    .sort((left, right) => left.slot - right.slot)
+    .map(currentGamePlayerToTeamBuilderPlayer);
+  restoreTeamBuilderInputs([...teamA, ...teamB]);
+
+  state.currentTeamBuilderGameId = game.id;
+  state.currentTeamBuilderGameStatus = "in_progress";
+  state.currentTeamBuilderTeams = { teamA, teamB };
+  state.lastGeneratedTeam1Players = teamA.map((player) => ({ id: player.id, job: player.job }));
+  state.lastGeneratedTeam2Players = teamB.map((player) => ({ id: player.id, job: player.job }));
+  displayTeams(teamA, teamB, getAllCharacterIdsFromTeams(teamA, teamB).join(), {
+    gameId: game.id,
+    status: "in_progress",
+  });
+  navigateToPage("teams", true);
+  showTeamMessage("진행중 경기를 팀짜기 화면으로 불러왔습니다. 결과를 입력할 수 있습니다.", false, false);
+}
+
+function currentGamePlayerToTeamBuilderPlayer(player) {
+  return {
+    id: player.player_name,
+    job: player.class_name ?? "-",
+    rank: DEFAULT_CLASS_RANK,
+    isAllCharacterBonus: false,
+  };
+}
+
+function restoreTeamBuilderInputs(players) {
+  players.slice(0, 8).forEach((player, index) => {
+    const input = document.querySelector(`#id${index + 1}`);
+    if (input) input.value = player.id;
+    document.querySelectorAll(`#job${index + 1} input`).forEach((checkbox) => {
+      checkbox.checked = true;
+    });
+  });
+}
+
+function getAllCharacterIdsFromTeams(teamA, teamB) {
+  return [...teamA, ...teamB]
+    .filter((player) => player.isAllCharacterBonus)
+    .map((player) => player.id);
 }
 
 async function cancelHistoryGame(gameId) {
@@ -1269,7 +1357,7 @@ async function searchDuoMatchup() {
     return;
   }
 
-  const allSeasons = document.querySelector("#duo-all-seasons")?.checked ?? false;
+  const allSeasons = document.querySelector("#duo-search-all-seasons")?.checked ?? false;
   const params = new URLSearchParams({
     user1,
     user2,
@@ -2017,7 +2105,7 @@ async function loadAdminPlayers() {
   if (query) params.set("q", query);
 
   const body = document.querySelector("#admin-player-body");
-  body.innerHTML = `<tr><td colspan="6" class="muted">유저 목록을 조회하는 중입니다...</td></tr>`;
+  body.innerHTML = `<tr><td colspan="7" class="muted">유저 목록을 조회하는 중입니다...</td></tr>`;
   try {
     const response = await fetch(`/api/admin/players?${params.toString()}`);
     if (!response.ok) throw new Error(await response.text());
@@ -2025,7 +2113,7 @@ async function loadAdminPlayers() {
     renderAdminPlayers();
   } catch (error) {
     console.error(error);
-    body.innerHTML = `<tr><td colspan="6" class="error-text">유저 목록 조회에 실패했습니다.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7" class="error-text">유저 목록 조회에 실패했습니다.</td></tr>`;
   }
 }
 
@@ -2161,22 +2249,66 @@ function setAdminUserMessage(message, isError = false) {
   element.classList.toggle("error-text", isError);
 }
 
+function setupAdminClassRankSelects() {
+  document.querySelectorAll("[data-admin-character]").forEach((select) => {
+    select.innerHTML = CLASS_RANKS.map(
+      (rank) =>
+        `<option value="${rank}" ${rank === DEFAULT_CLASS_RANK ? "selected" : ""}>${rank}</option>`
+    ).join("");
+  });
+}
+
+function normalizeClassRank(rank) {
+  const normalized = String(rank || DEFAULT_CLASS_RANK).trim().toUpperCase();
+  return CLASS_RANKS.includes(normalized) ? normalized : DEFAULT_CLASS_RANK;
+}
+
+function classRankFor(classRanks, job) {
+  return normalizeClassRank(classRanks?.[job]);
+}
+
+function classRankScore(rank) {
+  return CLASS_RANK_SCORES[normalizeClassRank(rank)] ?? CLASS_RANK_SCORES[DEFAULT_CLASS_RANK];
+}
+
+function renderClassRankOptions(selectedRank) {
+  return CLASS_RANKS.map(
+    (rank) => `<option value="${rank}" ${rank === normalizeClassRank(selectedRank) ? "selected" : ""}>${rank}</option>`
+  ).join("");
+}
+
+function renderClassRankSummary(classRanks) {
+  return `
+    <div class="class-rank-summary">
+      ${JOB_ORDER.map(
+        (job) => `
+          <span class="class-rank-pill">
+            <b>${escapeHtml(job)}</b>
+            <strong>${classRankFor(classRanks, job)}</strong>
+          </span>
+        `
+      ).join("")}
+    </div>
+  `;
+}
+
 function renderAdminPlayers() {
   const body = document.querySelector("#admin-player-body");
   document.querySelector("#admin-player-count").textContent =
     `${state.adminPlayers.length.toLocaleString("ko-KR")}명`;
 
   if (!state.adminPlayers.length) {
-    body.innerHTML = `<tr><td colspan="6" class="muted">등록된 유저가 없습니다.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7" class="muted">등록된 유저가 없습니다.</td></tr>`;
     return;
   }
 
   body.innerHTML = state.adminPlayers
     .map(
       (player) => `
-        <tr class="${player.is_active ? "" : "inactive-row"}">
+        <tr class="clickable-row ${player.is_active ? "" : "inactive-row"}" data-admin-player-row="${player.player_id}">
           <td>${escapeHtml(player.player_name)}</td>
           <td>${renderTierBadge(player.current_tier, "micro")}</td>
+          <td>${renderClassRankSummary(player.class_ranks)}</td>
           <td>
             <span class="status-pill ${player.is_active ? "active" : "inactive"}">
               ${player.is_active ? "활성" : "비활성"}
@@ -2205,9 +2337,9 @@ async function createAdminPlayer(event) {
   const message = document.querySelector("#admin-player-message");
   const form = document.querySelector("#admin-player-form");
   const displayName = document.querySelector("#admin-player-name").value.trim();
-  const characters = [...document.querySelectorAll("[data-admin-character]")].map((input) => ({
-    class_name: input.dataset.adminCharacter,
-    character_name: input.value.trim() || null,
+  const characters = [...document.querySelectorAll("[data-admin-character]")].map((select) => ({
+    class_name: select.dataset.adminCharacter,
+    class_rank: normalizeClassRank(select.value),
   }));
 
   if (!displayName) {
@@ -2216,56 +2348,51 @@ async function createAdminPlayer(event) {
   }
 
   try {
-    const response = await fetch("/api/admin/players", {
-      method: "POST",
+    const isEditing = state.editingAdminPlayerId !== null;
+    const response = await fetch(
+      isEditing ? `/api/admin/players/${state.editingAdminPlayerId}` : "/api/admin/players",
+      {
+      method: isEditing ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ display_name: displayName, characters }),
-    });
+      }
+    );
     if (!response.ok) {
       const detail = await response.json().catch(() => null);
       throw new Error(detail?.detail ?? "유저 등록에 실패했습니다.");
     }
-    form.reset();
+    resetAdminPlayerForm();
     message.classList.remove("error-text");
-    setAdminPlayerMessage("유저를 등록했습니다.", false);
+    setAdminPlayerMessage(isEditing ? "유저 정보를 수정했습니다." : "유저를 등록했습니다.", false);
     await refreshTeamPlayers();
     await loadAdminPlayers();
+    await loadCurrentGames();
   } catch (error) {
     console.error(error);
     setAdminPlayerMessage(error.message || "유저 등록에 실패했습니다.", true);
   }
 }
 
-async function editAdminPlayer(playerId) {
+function loadAdminPlayerIntoForm(playerId) {
   const player = state.adminPlayers.find((item) => item.player_id === playerId);
   if (!player) return;
 
-  const nextName = window.prompt("변경할 닉네임을 입력해주세요.", player.player_name);
-  if (nextName === null) return;
-  const displayName = nextName.trim();
-  if (!displayName) {
-    setAdminPlayerMessage("닉네임을 입력해주세요.", true);
-    return;
-  }
-  if (displayName === player.player_name) return;
+  state.editingAdminPlayerId = playerId;
+  document.querySelector("#admin-player-form-title").textContent = "유저 수정";
+  document.querySelector("#admin-player-submit").textContent = "수정 저장";
+  document.querySelector("#admin-player-name").value = player.player_name;
+  document.querySelectorAll("[data-admin-character]").forEach((select) => {
+    select.value = classRankFor(player.class_ranks, select.dataset.adminCharacter);
+  });
+  setAdminPlayerMessage(`${player.player_name} 정보를 수정 중입니다.`, false);
+}
 
-  try {
-    const response = await fetch(`/api/admin/players/${playerId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ display_name: displayName }),
-    });
-    if (!response.ok) {
-      throw new Error(await readErrorMessage(response, "유저 닉네임 수정에 실패했습니다."));
-    }
-    setAdminPlayerMessage("유저 닉네임을 수정했습니다.", false);
-    await refreshTeamPlayers();
-    await loadAdminPlayers();
-    await loadCurrentGames();
-  } catch (error) {
-    console.error(error);
-    setAdminPlayerMessage(error.message || "유저 닉네임 수정에 실패했습니다.", true);
-  }
+function resetAdminPlayerForm() {
+  state.editingAdminPlayerId = null;
+  document.querySelector("#admin-player-form").reset();
+  setupAdminClassRankSelects();
+  document.querySelector("#admin-player-form-title").textContent = "유저 등록";
+  document.querySelector("#admin-player-submit").textContent = "등록";
 }
 
 async function deleteAdminPlayer(playerId) {
@@ -2364,8 +2491,10 @@ function setupNameAutocomplete(input) {
       .map(
         (player, index) => `
           <button type="button" data-index="${index}" data-name="${escapeHtml(player.player_name)}">
-            ${escapeHtml(player.player_name)}
-            ${renderTierBadge(player.current_tier, "micro")}
+            <span class="autocomplete-main">
+              <strong>${escapeHtml(player.player_name)}</strong>
+              ${renderTierBadge(player.current_tier, "micro")}
+            </span>
           </button>
         `
       )
@@ -2444,7 +2573,13 @@ function getPlayerData() {
     showTeamMessage("8명의 플레이어 정보를 정확히 입력해주세요.");
     return null;
   }
-  return players;
+  return players.map((player) => {
+    const meta = state.teamPlayers.find((candidate) => candidate.player_name === player.id);
+    return {
+      ...player,
+      classRanks: meta?.class_ranks ?? {},
+    };
+  });
 }
 
 function getAllCharPlayers() {
@@ -2478,10 +2613,23 @@ function checkForbiddenCombination(team) {
   return hasUserA && hasUserB;
 }
 
+function rankForPlayerJob(player, job) {
+  return classRankFor(player.classRanks, job);
+}
+
+function teamRankScore(team) {
+  return team.reduce((sum, player) => sum + classRankScore(player.rank), 0);
+}
+
+function teamBalanceDiff(team1, team2) {
+  return Math.abs(teamRankScore(team1) - teamRankScore(team2));
+}
+
 function generateTeamsWithRules(players, lastTeam1, lastTeam2, isFirstRun, maxAttempts) {
   let attempts = 0;
-  let team1 = null;
-  let team2 = null;
+  let bestTeam1 = null;
+  let bestTeam2 = null;
+  let bestDiff = Number.POSITIVE_INFINITY;
   let successful = false;
 
   while (attempts < maxAttempts) {
@@ -2496,7 +2644,11 @@ function generateTeamsWithRules(players, lastTeam1, lastTeam2, isFirstRun, maxAt
       });
       if (eligiblePlayers.length > 0) {
         const chosenPlayer = eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
-        tempAssigned.push({ id: chosenPlayer.id, job });
+        tempAssigned.push({
+          id: chosenPlayer.id,
+          job,
+          rank: rankForPlayerJob(chosenPlayer, job),
+        });
         const playerIndex = currentPlayersForAttempt.findIndex(
           (player) => player.id === chosenPlayer.id
         );
@@ -2511,14 +2663,18 @@ function generateTeamsWithRules(players, lastTeam1, lastTeam2, isFirstRun, maxAt
       const unassignedJobs = player.jobs.filter((job) => !assignedJobs.includes(job));
       const jobPool = unassignedJobs.length > 0 ? unassignedJobs : player.jobs;
       const job = jobPool[Math.floor(Math.random() * jobPool.length)];
-      assignedPlayers.push({ id: player.id, job });
+      assignedPlayers.push({
+        id: player.id,
+        job,
+        rank: rankForPlayerJob(player, job),
+      });
     });
 
     if (assignedPlayers.length !== 8) continue;
 
     const shuffledPlayers = shuffle(assignedPlayers);
-    team1 = shuffledPlayers.slice(0, 4);
-    team2 = shuffledPlayers.slice(4, 8);
+    let team1 = shuffledPlayers.slice(0, 4);
+    let team2 = shuffledPlayers.slice(4, 8);
 
     if (!isValidTeam(team1) || !isValidTeam(team2)) continue;
 
@@ -2548,13 +2704,19 @@ function generateTeamsWithRules(players, lastTeam1, lastTeam2, isFirstRun, maxAt
       if (jobRuleViolated) continue;
     }
 
-    team1.sort((a, b) => JOB_ORDER.indexOf(a.job) - JOB_ORDER.indexOf(b.job));
-    team2.sort((a, b) => JOB_ORDER.indexOf(a.job) - JOB_ORDER.indexOf(b.job));
+    const diff = teamBalanceDiff(team1, team2);
+    if (diff > bestDiff) continue;
+
+    team1 = team1.sort((a, b) => JOB_ORDER.indexOf(a.job) - JOB_ORDER.indexOf(b.job));
+    team2 = team2.sort((a, b) => JOB_ORDER.indexOf(a.job) - JOB_ORDER.indexOf(b.job));
+    bestTeam1 = team1;
+    bestTeam2 = team2;
+    bestDiff = diff;
     successful = true;
-    break;
+    if (bestDiff === 0) break;
   }
 
-  return { team1, team2, successful };
+  return { team1: bestTeam1, team2: bestTeam2, successful, balanceDiff: bestDiff };
 }
 
 function createTeams() {
@@ -2614,12 +2776,12 @@ function createTeams() {
   state.lastGeneratedTeam2Players = finalTeam2.map((player) => ({ id: player.id, job: player.job }));
 }
 
-function displayTeams(team1, team2, allPlayersString) {
+function displayTeams(team1, team2, allPlayersString, options = {}) {
   const team1Info = `Team1 : ${team1.map((player) => `${player.id}(${player.job})`).join("  ")}`;
   const team2Info = `Team2 : ${team2.map((player) => `${player.id}(${player.job})`).join("  ")}`;
   state.lastGeneratedTextResult = `${team1Info}\nVS\n${team2Info}\n올캐릭:${allPlayersString}`;
-  state.currentTeamBuilderGameId = null;
-  state.currentTeamBuilderGameStatus = "draft";
+  state.currentTeamBuilderGameId = options.gameId ?? null;
+  state.currentTeamBuilderGameStatus = options.status ?? "draft";
   state.currentTeamBuilderTeams = { teamA: team1, teamB: team2 };
 
   document.querySelector("#team-result").innerHTML = `
@@ -2866,7 +3028,7 @@ function renderGeneratedPlayer(player, order) {
     <div class="${classes.join(" ")}" data-flip-order="${order}">
       <div class="flip-card-inner">
         <div class="flip-card-front">
-          <strong>깡CK</strong>
+          <strong>모두의 드어넥슴</strong>
           <span>LEAGUE CARD</span>
         </div>
         <div class="flip-card-back">
@@ -3094,13 +3256,22 @@ function formatSeasonDate(value) {
 
 function hasPermission(permission) {
   return Boolean(
-    state.me?.is_super || (Array.isArray(state.me?.permissions) && state.me.permissions.includes(permission))
+    state.me?.is_authenticated
+      && (state.me?.is_super
+        || (Array.isArray(state.me?.permissions) && state.me.permissions.includes(permission)))
   );
+}
+
+function canManageGames() {
+  return hasPermission("game:create");
 }
 
 function canAccessAdminPage() {
   if (state.me?.is_super) return true;
   const adminPagePermissions = [
+    "game:create",
+    "game:cancel",
+    "game:restore",
     "admin:manage",
     "season:manage",
     "notice:manage",

@@ -526,6 +526,22 @@ h1 {
   font-weight: 900;
 }
 
+.current-game-load-button {
+  justify-self: end;
+  width: auto;
+  min-height: 1.9rem;
+  padding: 0.25rem 0.55rem;
+  border-color: rgba(215, 170, 75, 0.35);
+  background: rgba(215, 170, 75, 0.13);
+  color: var(--gold);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.current-game-load-button:hover {
+  background: rgba(215, 170, 75, 0.2);
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -1753,9 +1769,15 @@ td {
 
 .duo-search-form {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto auto;
   gap: 0.75rem;
   align-items: end;
+}
+
+.duo-search-season-check {
+  min-height: 2.45rem;
+  align-content: center;
+  white-space: nowrap;
 }
 
 .duo-search-form label {
@@ -1860,11 +1882,11 @@ td {
 }
 
 .autocomplete-list button {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.28rem;
   width: 100%;
   min-height: auto;
-  align-items: center;
-  justify-content: space-between;
   padding: 0.65rem 0.75rem;
   border: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -1873,6 +1895,21 @@ td {
   color: var(--text);
   font-weight: 700;
   text-align: left;
+}
+
+.autocomplete-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.autocomplete-main strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .autocomplete-list button:last-child {
@@ -1885,7 +1922,7 @@ td {
   color: var(--gold);
 }
 
-.autocomplete-list button span {
+.autocomplete-list button > span:not(.tier-badge):not(.tier-emblem):not(.tier-badge-label) {
   color: var(--muted);
   font-size: 0.78rem;
 }
@@ -2393,8 +2430,15 @@ td {
   resize: vertical;
 }
 
-.admin-player-form button {
+.admin-player-form button,
+.admin-player-form-actions {
   grid-column: 1 / -1;
+}
+
+.admin-player-form-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
 }
 
 .admin-player-form-card .admin-player-form {
@@ -2405,6 +2449,59 @@ td {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.7rem;
+}
+
+.class-rank-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(4.4rem, 1fr));
+  gap: 0.35rem;
+}
+
+.class-rank-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  min-height: 1.8rem;
+  padding: 0.22rem 0.42rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  white-space: nowrap;
+}
+
+.class-rank-editor {
+  display: grid;
+  grid-template-columns: 2.4rem minmax(3.6rem, 1fr);
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.class-rank-editor span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.class-rank-editor select {
+  min-height: 1.9rem;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-strong);
+  color: var(--gold);
+  font: inherit;
+  font-weight: 900;
+}
+
+.class-rank-pill b {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.class-rank-pill strong {
+  color: var(--gold);
+  font-weight: 900;
 }
 
 .admin-player-message {
@@ -2441,7 +2538,7 @@ td {
 }
 
 .admin-player-table table {
-  min-width: 48rem;
+  min-width: 58rem;
 }
 
 .admin-player-table {

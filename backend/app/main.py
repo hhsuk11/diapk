@@ -14,7 +14,7 @@ app = FastAPI(title=settings.app_name, version="0.1.0")
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret,
-    session_cookie="kkangck_session",
+    session_cookie="modu_dne_session",
     max_age=60 * 60 * 12,
     same_site="lax",
     https_only=settings.session_https_only,

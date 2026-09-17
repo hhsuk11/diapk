@@ -31,5 +31,6 @@ class PlayerCharacter(TimestampMixin, Base):
     class_name: Mapped[str] = mapped_column(String(40), nullable=False)
     character_name: Mapped[str | None] = mapped_column(String(80))
     normalized_character_name: Mapped[str | None] = mapped_column(String(100))
+    class_rank: Mapped[str | None] = mapped_column(String(1))
 
     player: Mapped[Player] = relationship(back_populates="characters")

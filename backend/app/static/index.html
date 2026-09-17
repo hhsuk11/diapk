@@ -3,12 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>깡CK</title>
-    <link rel="stylesheet" href="/assets/app.css?v=20260712-34" />
+    <title>모두의 드어넥슴</title>
+    <link rel="stylesheet" href="/assets/app.css?v=20260918-08" />
   </head>
   <body>
     <header class="topbar">
-      <a class="brand active" href="#home" data-page-link="home">깡CK</a>
+      <a class="brand active" href="#home" data-page-link="home">모두의 드어넥슴</a>
       <nav class="nav">
         <a href="#notice" data-page-link="notice">공지사항</a>
         <a href="#rank" data-page-link="rank">랭크</a>
@@ -31,7 +31,7 @@
 
       <section class="hero page-section active" id="home" data-page="home">
         <div class="hero-copy">
-          <p class="eyebrow">깡CK 드어넥슴 League</p>
+          <p class="eyebrow">모두의 드어넥슴 League</p>
           <h1 id="home-season-title">시즌 정보</h1>
           <div class="home-summary-grid" id="home-summary-grid">
             <article class="home-summary-card">
@@ -214,6 +214,10 @@
                 <input id="duo-player-2" type="text" autocomplete="off" />
                 <div class="autocomplete-list" hidden></div>
               </label>
+              <label class="inline-check duo-search-season-check">
+                <input type="checkbox" id="duo-search-all-seasons" />
+                <span>전체 시즌 검색</span>
+              </label>
               <button type="button" class="primary" id="search-duo-button">검색</button>
             </div>
             <div class="duo-matchup-result" id="duo-matchup-result"></div>
@@ -367,7 +371,7 @@
 
         <div class="admin-player-panel admin-panel" data-admin-panel="player" hidden>
           <article class="admin-card admin-player-form-card">
-            <span>유저 등록</span>
+            <span id="admin-player-form-title">유저 등록</span>
             <form class="admin-player-form" id="admin-player-form">
               <label>
                 <span>닉네임</span>
@@ -375,23 +379,26 @@
               </label>
               <div class="admin-player-character-grid">
                 <label>
-                  <span>드루 캐릭명 선택</span>
-                  <input data-admin-character="드루" type="text" maxlength="80" />
+                  <span>드루 등급</span>
+                  <select data-admin-character="드루"></select>
                 </label>
                 <label>
-                  <span>어쎄 캐릭명 선택</span>
-                  <input data-admin-character="어쎄" type="text" maxlength="80" />
+                  <span>어쎄 등급</span>
+                  <select data-admin-character="어쎄"></select>
                 </label>
                 <label>
-                  <span>네크 캐릭명 선택</span>
-                  <input data-admin-character="네크" type="text" maxlength="80" />
+                  <span>네크 등급</span>
+                  <select data-admin-character="네크"></select>
                 </label>
                 <label>
-                  <span>슴딘 캐릭명 선택</span>
-                  <input data-admin-character="슴딘" type="text" maxlength="80" />
+                  <span>슴딘 등급</span>
+                  <select data-admin-character="슴딘"></select>
                 </label>
               </div>
-              <button type="submit" class="primary">등록</button>
+              <div class="admin-player-form-actions">
+                <button type="submit" class="primary" id="admin-player-submit">등록</button>
+                <button type="button" id="admin-player-new">신규 등록</button>
+              </div>
             </form>
             <p class="admin-player-message" id="admin-player-message"></p>
           </article>
@@ -417,6 +424,7 @@
                   <tr>
                     <th>닉네임</th>
                     <th>티어</th>
+                    <th>직업등급</th>
                     <th>상태</th>
                     <th>총게임</th>
                     <th>참조</th>
@@ -744,6 +752,6 @@
       </div>
     </div>
 
-    <script src="/assets/app.js?v=20260712-33"></script>
+    <script src="/assets/app.js?v=20260918-08"></script>
   </body>
 </html>
