@@ -2562,6 +2562,14 @@ td {
   min-width: 62rem;
 }
 
+.admin-user-table {
+  max-height: min(62vh, 42rem) !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 .permission-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(7.5rem, 1fr));
@@ -3480,6 +3488,10 @@ tbody tr:hover {
 
   .history-page-size {
     margin-left: 0;
+  }
+
+  .admin-user-table {
+    max-height: calc(100dvh - 18rem) !important;
   }
 
   .history-meta {

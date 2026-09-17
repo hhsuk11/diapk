@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "모두의 드어넥슴"
+    app_name: str = "가즈아 드어넥슴"
     app_env: str = "local"
     auth_mode: Literal["dev", "google"] = "dev"
     dev_admin_email: str = "dev-admin@example.local"

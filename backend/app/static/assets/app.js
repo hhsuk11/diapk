@@ -7,6 +7,7 @@ const USERS_B = ["123", "456"];
 const AUTOCOMPLETE_LIMIT = 12;
 const CLASS_SORT_MIN_GAMES = 50;
 const CURRENT_GAMES_POLL_INTERVAL_MS = 60000;
+const KOREA_TIME_ZONE = "Asia/Seoul";
 const TIER_THRESHOLD_NAMES = ["마스터", "다이아", "플래티넘", "골드", "실버"];
 const PAGE_NAMES = new Set(["home", "rank", "history", "stats", "teams", "notice", "admin"]);
 const ADMIN_PERMISSION_OPTIONS = [
@@ -535,10 +536,7 @@ function renderCurrentGameCard(game) {
     <article class="current-game-card">
       <div class="current-game-meta">
         <span>${escapeHtml(game.season_name ?? `시즌 ${game.season_id}`)}</span>
-        <span>${new Date(game.played_at).toLocaleTimeString("ko-KR", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}</span>
+        <span>${formatKoreaTime(game.played_at)}</span>
       </div>
       <div class="current-game-teams">
         ${renderCurrentGameTeam("1팀", teamA)}
@@ -682,7 +680,7 @@ async function editHistoryGameResult(gameId) {
   state.currentEditingHistoryGameId = gameId;
   document.querySelector("#result-edit-title").textContent = "경기 결과 수정";
   document.querySelector("#result-edit-meta").textContent = [
-    new Date(game.played_at).toLocaleString("ko-KR"),
+    formatKoreaDateTime(game.played_at),
     game.season_name ?? `시즌 ${game.season_id}`,
     game.legacy_game_id ?? game.id,
   ].join(" · ");
@@ -907,7 +905,7 @@ function renderHistory() {
         <article class="history-item compact-history-card ${game.status === "CANCELED" ? "canceled-history-card" : ""}">
           <div class="history-card-head">
             <div class="history-meta">
-              <span>${new Date(game.played_at).toLocaleString("ko-KR")}</span>
+              <span>${formatKoreaDateTime(game.played_at)}</span>
               <span>${escapeHtml(game.season_name ?? `시즌 ${game.season_id}`)}</span>
               <span>${escapeHtml(game.legacy_game_id ?? game.id)}</span>
               <span>${escapeHtml(formatGameStatus(game.status))}</span>
@@ -1316,7 +1314,7 @@ function renderRecentGames(games) {
         .map(
           (game) => `
             <li>
-              <span>${new Date(game.played_at).toLocaleDateString("ko-KR")}</span>
+              <span>${formatKoreaDate(game.played_at)}</span>
               <strong class="${game.result === "승" ? "win-text" : "lose-text"}">
                 ${game.result}
               </strong>
@@ -3028,7 +3026,7 @@ function renderGeneratedPlayer(player, order) {
     <div class="${classes.join(" ")}" data-flip-order="${order}">
       <div class="flip-card-inner">
         <div class="flip-card-front">
-          <strong>모두의 드어넥슴</strong>
+          <strong>가즈아 드어넥슴</strong>
           <span>LEAGUE CARD</span>
         </div>
         <div class="flip-card-back">
@@ -3251,7 +3249,26 @@ function seasonStatusClass(status) {
 
 function formatSeasonDate(value) {
   if (!value) return "-";
-  return new Date(value).toLocaleDateString("ko-KR");
+  return formatKoreaDate(value);
+}
+
+function formatKoreaDate(value) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("ko-KR", { timeZone: KOREA_TIME_ZONE });
+}
+
+function formatKoreaTime(value) {
+  if (!value) return "-";
+  return new Date(value).toLocaleTimeString("ko-KR", {
+    timeZone: KOREA_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatKoreaDateTime(value) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("ko-KR", { timeZone: KOREA_TIME_ZONE });
 }
 
 function hasPermission(permission) {
