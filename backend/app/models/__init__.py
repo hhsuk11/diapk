@@ -6,9 +6,11 @@ from app.models.player import Player, PlayerCharacter
 from app.models.rating import RatingEvent, SeasonPlayerClassStats, SeasonPlayerStats
 from app.models.scoring import ScoringRuleVersion
 from app.models.season import Season
+from app.models.setting import AppSetting
 
 __all__ = [
     "AdminUser",
+    "AppSetting",
     "AuditLog",
     "Game",
     "GamePlayer",

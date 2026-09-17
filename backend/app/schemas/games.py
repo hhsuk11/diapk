@@ -1,8 +1,9 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
 
+from app.core.time import serialize_utc
 from app.models.enums import GameSource
 
 
@@ -89,3 +90,7 @@ class GameRead(BaseModel):
     canceled_at: datetime | None
     cancel_reason: str | None
     restored_at: datetime | None
+
+    @field_serializer("played_at", "canceled_at", "restored_at")
+    def serialize_datetimes(self, value: datetime | None) -> str | None:
+        return serialize_utc(value)

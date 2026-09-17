@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>가즈아 드어넥슴</title>
-    <link rel="stylesheet" href="/assets/app.css?v=20260918-10" />
+    <link rel="stylesheet" href="/assets/app.css?v=20260918-15" />
   </head>
   <body>
     <header class="topbar">
@@ -271,6 +271,7 @@
           <button type="button" class="admin-tab" data-admin-tab="notice">공지사항</button>
           <button type="button" class="admin-tab" data-admin-tab="player">유저</button>
           <button type="button" class="admin-tab" data-admin-tab="mmr" data-permission-required="mmr:manage">MMR</button>
+          <button type="button" class="admin-tab" data-admin-tab="setting" data-permission-required="admin:manage">설정</button>
           <button type="button" class="admin-tab" data-admin-tab="user" data-super-admin-only hidden>권한</button>
         </div>
 
@@ -464,6 +465,23 @@
               <tbody id="admin-user-body"></tbody>
             </table>
           </div>
+        </article>
+
+        <article class="admin-card admin-setting-panel admin-panel" data-admin-panel="setting" data-permission-required="admin:manage" hidden>
+          <div class="admin-list-heading">
+            <div>
+              <span>서비스 설정</span>
+              <strong>디스코드</strong>
+            </div>
+          </div>
+          <form class="admin-player-form admin-setting-form" id="admin-setting-form">
+            <label>
+              <span>디스코드 입장 URL</span>
+              <input id="admin-discord-url" type="url" maxlength="1000" placeholder="https://discord.gg/..." />
+            </label>
+            <button type="submit" class="primary" id="admin-setting-save">저장</button>
+          </form>
+          <p class="admin-player-message" id="admin-setting-message"></p>
         </article>
 
         <article class="admin-card admin-mmr-panel admin-panel" data-admin-panel="mmr" hidden>
@@ -752,6 +770,6 @@
       </div>
     </div>
 
-    <script src="/assets/app.js?v=20260918-10"></script>
+    <script src="/assets/app.js?v=20260918-15"></script>
   </body>
 </html>

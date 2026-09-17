@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
+
+from app.core.time import serialize_utc
 
 
 class SummaryRead(BaseModel):
@@ -79,6 +81,10 @@ class RecentGameRead(BaseModel):
     score: str
     result: str
 
+    @field_serializer("played_at")
+    def serialize_played_at(self, value: datetime) -> str | None:
+        return serialize_utc(value)
+
 
 class PlayerDetailRead(BaseModel):
     player_id: int
@@ -130,6 +136,10 @@ class GameSummaryRead(BaseModel):
     team_a_average_score: int | None = None
     team_b_average_score: int | None = None
     players: list[GamePlayerRead]
+
+    @field_serializer("played_at")
+    def serialize_played_at(self, value: datetime) -> str | None:
+        return serialize_utc(value)
 
 
 class HistoryPageRead(BaseModel):

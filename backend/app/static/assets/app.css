@@ -486,8 +486,9 @@ h1 {
 
 .current-game-teams {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: 0.55rem;
+  grid-template-columns: minmax(0, 1fr) 3rem minmax(0, 1fr);
+  column-gap: 0.8rem;
+  row-gap: 0.55rem;
   align-items: center;
 }
 
@@ -521,12 +522,25 @@ h1 {
 }
 
 .current-game-vs {
+  justify-self: center;
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 900;
+  text-align: center;
 }
 
-.current-game-load-button {
+.current-game-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.current-game-load-button,
+.current-game-discord-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   justify-self: end;
   width: auto;
   min-height: 1.9rem;
@@ -538,8 +552,19 @@ h1 {
   font-weight: 900;
 }
 
-.current-game-load-button:hover {
+.current-game-discord-button {
+  border: 1px solid rgba(93, 224, 202, 0.32);
+  background: rgba(93, 224, 202, 0.1);
+  color: var(--teal);
+}
+
+.current-game-load-button:hover,
+.current-game-discord-button:hover {
   background: rgba(215, 170, 75, 0.2);
+}
+
+.current-game-discord-button:hover {
+  background: rgba(93, 224, 202, 0.16);
 }
 
 .toolbar {
@@ -2382,6 +2407,7 @@ td {
   grid-template-columns: minmax(12rem, 22rem) auto;
   gap: 0.7rem;
   align-items: end;
+  justify-content: start;
   margin: 0.9rem 0 0.75rem;
 }
 
@@ -2407,6 +2433,18 @@ td {
   font: inherit;
 }
 
+.admin-season-create-form button,
+.admin-season-panel .admin-list-controls button {
+  width: fit-content;
+  min-height: 2.45rem;
+  padding: 0.52rem 0.85rem;
+  justify-self: end;
+}
+
+.admin-season-panel .admin-list-controls {
+  justify-content: end;
+}
+
 .admin-player-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2429,7 +2467,7 @@ td {
 .admin-player-form input,
 .admin-player-form select,
 .admin-player-form textarea,
-.admin-list-controls input {
+.admin-list-controls input:not([type="checkbox"]) {
   width: 100%;
   min-height: 2.45rem;
   padding: 0.58rem 0.7rem;
@@ -2446,15 +2484,31 @@ td {
   resize: vertical;
 }
 
-.admin-player-form button,
+.admin-player-form > button,
 .admin-player-form-actions {
   grid-column: 1 / -1;
+}
+
+.admin-player-form > button,
+.admin-setting-form > button,
+.admin-season-create-form button,
+.admin-mmr-actions button,
+.admin-notice-actions button {
+  width: fit-content;
+  min-height: 2.45rem;
+  padding: 0.52rem 0.85rem;
+  justify-self: end;
 }
 
 .admin-player-form-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.55rem;
+}
+
+.admin-player-form-actions button {
+  width: 100%;
+  justify-self: stretch;
 }
 
 .admin-player-form-card .admin-player-form {
@@ -2550,7 +2604,18 @@ td {
 }
 
 .admin-list-controls .inline-check {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
   white-space: nowrap;
+}
+
+.admin-list-controls .inline-check input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  min-height: 0;
+  padding: 0;
+  accent-color: var(--gold);
 }
 
 .admin-player-table table {
@@ -2953,6 +3018,11 @@ td {
 
 .admin-notice-form {
   grid-template-columns: minmax(14rem, 1fr) auto auto;
+  align-items: end;
+}
+
+.admin-setting-form {
+  grid-template-columns: minmax(14rem, 1fr) auto;
   align-items: end;
 }
 
@@ -3461,7 +3531,7 @@ tbody tr:hover {
   }
 
   .current-game-vs {
-    justify-self: start;
+    justify-self: center;
   }
 
   .result-edit-teams,
@@ -3519,6 +3589,42 @@ tbody tr:hover {
 
   .history-page-size {
     margin-left: 0;
+  }
+
+  .admin-list-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    width: 100%;
+  }
+
+  .admin-list-controls input[type="search"] {
+    flex: 1 1 100%;
+  }
+
+  .admin-list-controls .inline-check,
+  .admin-list-controls button {
+    flex: 0 0 auto;
+  }
+
+  .admin-season-create-form {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-season-create-form button {
+    width: fit-content;
+    justify-self: end;
+  }
+
+  .admin-player-form > button,
+  .admin-setting-form > button {
+    width: fit-content;
+    justify-self: end;
+  }
+
+  .admin-season-panel .admin-list-controls {
+    justify-content: flex-end;
   }
 
   .table-wrap.compact-table,

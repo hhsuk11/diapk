@@ -28,6 +28,9 @@ const state = {
   history: [],
   currentGames: [],
   currentGamesTimer: null,
+  appSettings: {
+    discord_url: null,
+  },
   historyPage: {
     page: 1,
     pageSize: 20,
@@ -67,16 +70,18 @@ async function loadStatus() {
   const seasonSelect = document.querySelector("#season-select");
 
   try {
-    const [meResponse, seasonsResponse, teamPlayersResponse] = await Promise.all([
+    const [meResponse, seasonsResponse, teamPlayersResponse, settingsResponse] = await Promise.all([
       fetch("/api/auth/me"),
       fetch("/api/seasons"),
       fetch("/api/team-builder/players"),
+      fetch("/api/settings"),
     ]);
 
     state.me = await meResponse.json();
     renderAuthState();
     state.seasons = await seasonsResponse.json();
     state.teamPlayers = await teamPlayersResponse.json();
+    state.appSettings = settingsResponse.ok ? await settingsResponse.json() : { discord_url: null };
     updateTeamPlayerMeta();
 
     renderSeasons(seasonSelect);
@@ -165,6 +170,7 @@ function attachEvents() {
     }
   });
   document.querySelector("#admin-mmr-form").addEventListener("submit", saveAdminScoringRule);
+  document.querySelector("#admin-setting-form").addEventListener("submit", saveAdminSettings);
   document.querySelector("#admin-mmr-simulate").addEventListener("click", openMmrSimulator);
   document.querySelectorAll("[data-mmr-tab]").forEach((button) => {
     button.addEventListener("click", () => showMmrSection(button.dataset.mmrTab));
@@ -543,15 +549,28 @@ function renderCurrentGameCard(game) {
         <span class="current-game-vs">VS</span>
         ${renderCurrentGameTeam("2팀", teamB)}
       </div>
-      ${
-        canManageGames()
-          ? `<button type="button" class="current-game-load-button" data-load-current-game="${escapeHtml(
-              game.id
-            )}">팀짜기로 불러오기</button>`
-          : ""
-      }
+      ${renderCurrentGameActions(game)}
     </article>
   `;
+}
+
+function renderCurrentGameActions(game) {
+  const discordUrl = state.appSettings?.discord_url;
+  const actions = [];
+  if (discordUrl) {
+    actions.push(
+      `<a class="current-game-discord-button" href="${escapeHtml(discordUrl)}" target="_blank" rel="noopener noreferrer">디스코드</a>`
+    );
+  }
+  if (canManageGames()) {
+    actions.push(
+      `<button type="button" class="current-game-load-button" data-load-current-game="${escapeHtml(
+        game.id
+      )}">팀짜기로 불러오기</button>`
+    );
+  }
+  if (!actions.length) return "";
+  return `<div class="current-game-actions">${actions.join("")}</div>`;
 }
 
 function renderCurrentGameTeam(label, players) {
@@ -1441,6 +1460,7 @@ function showAdminPanel(panelName) {
   if (panelName === "player" && state.adminPlayers.length === 0) loadAdminPlayers();
   if (panelName === "user" && state.adminUsers.length === 0) loadAdminUsers();
   if (panelName === "mmr" && !state.adminScoringRule) loadAdminScoringRule();
+  if (panelName === "setting") loadAdminSettings();
 }
 
 function renderSuperAdminControls() {
@@ -1951,6 +1971,46 @@ function validateTierThresholds(thresholds) {
 
 function setAdminMmrMessage(message, isError = false) {
   const element = document.querySelector("#admin-mmr-message");
+  element.textContent = message;
+  element.classList.toggle("error-text", isError);
+}
+
+async function loadAdminSettings() {
+  if (!hasPermission("admin:manage")) return;
+  try {
+    const response = await fetch("/api/admin/settings");
+    if (!response.ok) throw new Error(await readErrorMessage(response, "설정 조회에 실패했습니다."));
+    state.appSettings = await response.json();
+    document.querySelector("#admin-discord-url").value = state.appSettings.discord_url ?? "";
+    setAdminSettingMessage("", false);
+  } catch (error) {
+    console.error(error);
+    setAdminSettingMessage(error.message, true);
+  }
+}
+
+async function saveAdminSettings(event) {
+  event.preventDefault();
+  const discordUrl = document.querySelector("#admin-discord-url").value.trim() || null;
+  try {
+    const response = await fetch("/api/admin/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ discord_url: discordUrl }),
+    });
+    if (!response.ok) throw new Error(await readErrorMessage(response, "설정 저장에 실패했습니다."));
+    state.appSettings = await response.json();
+    document.querySelector("#admin-discord-url").value = state.appSettings.discord_url ?? "";
+    renderCurrentGames();
+    setAdminSettingMessage("설정을 저장했습니다.", false);
+  } catch (error) {
+    console.error(error);
+    setAdminSettingMessage(error.message, true);
+  }
+}
+
+function setAdminSettingMessage(message, isError = false) {
+  const element = document.querySelector("#admin-setting-message");
   element.textContent = message;
   element.classList.toggle("error-text", isError);
 }
