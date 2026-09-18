@@ -1443,6 +1443,7 @@ function renderDuoMatchup(matchup) {
 function showAdminPanel(panelName) {
   if (panelName === "user" && !state.me?.is_super) panelName = "season";
   if (panelName === "mmr" && !hasPermission("mmr:manage")) panelName = "season";
+  if (panelName === "setting" && !hasPermission("admin:manage")) panelName = "season";
   document.querySelectorAll("[data-admin-tab]").forEach((button) => {
     const active = button.dataset.adminTab === panelName;
     button.classList.toggle("active", active);
@@ -1472,6 +1473,7 @@ function renderSuperAdminControls() {
 
 function renderPermissionControls() {
   document.querySelectorAll("[data-permission-required]").forEach((element) => {
+    if (element.matches("[data-admin-panel]")) return;
     element.hidden = !hasPermission(element.dataset.permissionRequired);
   });
 }
