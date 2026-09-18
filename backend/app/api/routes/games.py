@@ -39,6 +39,9 @@ def create_game(
     if season.disabled_at is not None or season.status != SeasonStatus.OPEN.value:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Season is not open")
 
+    players_by_name = get_registered_players(db, [*payload.team_a, *payload.team_b])
+    ensure_players_not_in_progress(db, list(players_by_name.values()))
+
     game = Game(
         id=str(uuid4()),
         season_id=season.id,
@@ -100,7 +103,7 @@ def start_game(
     )
     db.add(game)
     db.flush()
-    add_game_players(db, game, payload.team_a, payload.team_b)
+    add_game_players(db, game, payload.team_a, payload.team_b, players_by_name)
 
     db.add(
         AuditLog(
@@ -249,8 +252,10 @@ def add_game_players(
     game: Game,
     team_a: list[TeamPlayerIn],
     team_b: list[TeamPlayerIn],
+    registered_players: dict[str, Player] | None = None,
 ) -> None:
-    registered_players = get_registered_players(db, [*team_a, *team_b])
+    if registered_players is None:
+        registered_players = get_registered_players(db, [*team_a, *team_b])
     for side, players in ((GameSide.A.value, team_a), (GameSide.B.value, team_b)):
         for slot, player in enumerate(players, start=1):
             league_player = registered_players[normalize_player_name(player.name)]
@@ -278,6 +283,28 @@ def load_mutable_game(db: Session, game_id: str) -> Game:
             detail="Only games in an open season can be changed",
         )
     return game
+
+
+def ensure_players_not_in_progress(db: Session, players: list[Player]) -> None:
+    if not players:
+        return
+    busy_players = db.execute(
+        select(Player.display_name, Game.id)
+        .join(GamePlayer, GamePlayer.player_id == Player.id)
+        .join(Game, Game.id == GamePlayer.game_id)
+        .where(
+            Player.id.in_([player.id for player in players]),
+            Game.status == GameStatus.IN_PROGRESS.value,
+        )
+        .order_by(Player.display_name)
+    ).all()
+    if not busy_players:
+        return
+    busy_names = sorted({display_name for display_name, _game_id in busy_players})
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=f"Players already in progress: {', '.join(busy_names)}",
+    )
 
 
 def get_registered_players(db: Session, players: list[TeamPlayerIn]) -> dict[str, Player]:

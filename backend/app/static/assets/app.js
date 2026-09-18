@@ -3442,6 +3442,9 @@ function translateApiMessage(message) {
   if (message.startsWith("Registered player not found:")) {
     return `등록되지 않은 플레이어가 포함되어 있습니다: ${message.replace("Registered player not found:", "").trim()}`;
   }
+  if (message.startsWith("Players already in progress:")) {
+    return `진행중 경기 참여 중인 유저가 있습니다: ${message.replace("Players already in progress:", "").trim()}`;
+  }
   if (message === "Winner score must be greater than loser score") {
     return "승리팀 점수는 패배팀 점수보다 높아야 합니다.";
   }
