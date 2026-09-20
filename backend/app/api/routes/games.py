@@ -39,9 +39,6 @@ def create_game(
     if season.disabled_at is not None or season.status != SeasonStatus.OPEN.value:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Season is not open")
 
-    players_by_name = get_registered_players(db, [*payload.team_a, *payload.team_b])
-    ensure_players_not_in_progress(db, list(players_by_name.values()))
-
     game = Game(
         id=str(uuid4()),
         season_id=season.id,
@@ -88,6 +85,9 @@ def start_game(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Season not found")
     if season.disabled_at is not None or season.status != SeasonStatus.OPEN.value:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Season is not open")
+
+    players_by_name = get_registered_players(db, [*payload.team_a, *payload.team_b])
+    ensure_players_not_in_progress(db, list(players_by_name.values()))
 
     game = Game(
         id=str(uuid4()),
