@@ -2685,12 +2685,63 @@ function teamBalanceDiff(team1, team2) {
   return Math.abs(teamRankScore(team1) - teamRankScore(team2));
 }
 
+const TEAM_BALANCE_TARGET_DIFF = 2;
+
+function evaluateTeamCandidate(team1, team2, players, lastTeam1, lastTeam2, isFirstRun) {
+  const diff = teamBalanceDiff(team1, team2);
+  if (isFirstRun) {
+    return {
+      diff,
+      teamContinuityPenalty: 0,
+      repeatedJobPenalty: 0,
+    };
+  }
+
+  const commonInTeam1 = team1.filter((player) =>
+    lastTeam1.some((lastPlayer) => lastPlayer.id === player.id)
+  ).length;
+  const commonInTeam2 = team2.filter((player) =>
+    lastTeam2.some((lastPlayer) => lastPlayer.id === player.id)
+  ).length;
+  const allPreviousPlayersWithJobs = [...lastTeam1, ...lastTeam2];
+  const repeatedJobPenalty = [...team1, ...team2].filter((player) => {
+    const previousPlayerInfo = allPreviousPlayersWithJobs.find(
+      (previousPlayer) => previousPlayer.id === player.id
+    );
+    if (!previousPlayerInfo) return false;
+    const originalPlayer = players.find((candidate) => candidate.id === player.id);
+    return originalPlayer && originalPlayer.jobs.length > 1 && player.job === previousPlayerInfo.job;
+  }).length;
+
+  return {
+    diff,
+    teamContinuityPenalty: Math.abs(commonInTeam1 - 2) + Math.abs(commonInTeam2 - 2),
+    repeatedJobPenalty,
+  };
+}
+
+function isBetterTeamCandidate(candidate, currentBest) {
+  if (!currentBest) return true;
+
+  const candidateMeetsTarget = candidate.score.diff <= TEAM_BALANCE_TARGET_DIFF;
+  const bestMeetsTarget = currentBest.score.diff <= TEAM_BALANCE_TARGET_DIFF;
+  if (candidateMeetsTarget !== bestMeetsTarget) return candidateMeetsTarget;
+
+  const comparisonOrder = candidateMeetsTarget
+    ? ["teamContinuityPenalty", "repeatedJobPenalty", "diff"]
+    : ["diff", "teamContinuityPenalty", "repeatedJobPenalty"];
+
+  for (const key of comparisonOrder) {
+    if (candidate.score[key] !== currentBest.score[key]) {
+      return candidate.score[key] < currentBest.score[key];
+    }
+  }
+  return false;
+}
+
 function generateTeamsWithRules(players, lastTeam1, lastTeam2, isFirstRun, maxAttempts) {
   let attempts = 0;
-  let bestTeam1 = null;
-  let bestTeam2 = null;
-  let bestDiff = Number.POSITIVE_INFINITY;
-  let successful = false;
+  let bestCandidate = null;
 
   while (attempts < maxAttempts) {
     attempts += 1;
@@ -2738,45 +2789,41 @@ function generateTeamsWithRules(players, lastTeam1, lastTeam2, isFirstRun, maxAt
 
     if (!isValidTeam(team1) || !isValidTeam(team2)) continue;
 
-    if (!isFirstRun) {
-      const commonInTeam1 = team1.filter((player) =>
-        lastTeam1.some((lastPlayer) => lastPlayer.id === player.id)
-      ).length;
-      const commonInTeam2 = team2.filter((player) =>
-        lastTeam2.some((lastPlayer) => lastPlayer.id === player.id)
-      ).length;
+    const score = evaluateTeamCandidate(team1, team2, players, lastTeam1, lastTeam2, isFirstRun);
+    const candidate = { team1, team2, score };
+    if (!isBetterTeamCandidate(candidate, bestCandidate)) continue;
 
-      if (commonInTeam1 !== 2 || commonInTeam2 !== 2) continue;
-
-      const allPreviousPlayersWithJobs = [...lastTeam1, ...lastTeam2];
-      let jobRuleViolated = false;
-      for (const player of [...team1, ...team2]) {
-        const previousPlayerInfo = allPreviousPlayersWithJobs.find(
-          (previousPlayer) => previousPlayer.id === player.id
-        );
-        if (!previousPlayerInfo) continue;
-        const originalPlayer = players.find((candidate) => candidate.id === player.id);
-        if (originalPlayer && originalPlayer.jobs.length > 1 && player.job === previousPlayerInfo.job) {
-          jobRuleViolated = true;
-          break;
-        }
-      }
-      if (jobRuleViolated) continue;
+    bestCandidate = candidate;
+    if (
+      score.diff === 0 &&
+      score.teamContinuityPenalty === 0 &&
+      score.repeatedJobPenalty === 0
+    ) {
+      break;
     }
-
-    const diff = teamBalanceDiff(team1, team2);
-    if (diff > bestDiff) continue;
-
-    team1 = team1.sort((a, b) => JOB_ORDER.indexOf(a.job) - JOB_ORDER.indexOf(b.job));
-    team2 = team2.sort((a, b) => JOB_ORDER.indexOf(a.job) - JOB_ORDER.indexOf(b.job));
-    bestTeam1 = team1;
-    bestTeam2 = team2;
-    bestDiff = diff;
-    successful = true;
-    if (bestDiff === 0) break;
   }
 
-  return { team1: bestTeam1, team2: bestTeam2, successful, balanceDiff: bestDiff };
+  if (!bestCandidate) {
+    return {
+      team1: null,
+      team2: null,
+      successful: false,
+      balanceDiff: Number.POSITIVE_INFINITY,
+    };
+  }
+
+  const sortedTeam1 = bestCandidate.team1.sort(
+    (a, b) => JOB_ORDER.indexOf(a.job) - JOB_ORDER.indexOf(b.job)
+  );
+  const sortedTeam2 = bestCandidate.team2.sort(
+    (a, b) => JOB_ORDER.indexOf(a.job) - JOB_ORDER.indexOf(b.job)
+  );
+  return {
+    team1: sortedTeam1,
+    team2: sortedTeam2,
+    successful: true,
+    balanceDiff: bestCandidate.score.diff,
+  };
 }
 
 function createTeams() {
